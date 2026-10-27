@@ -1,7 +1,44 @@
 /**
  * Display Manager Module
- * Handles updating all display elements and visualizations for federal, state, and county taxes
+ * Writes every result to the page. Every number shown comes from the
+ * TaxCalculator result (notes/engine.md) or from the data module the engine
+ * hands back through getJurisdictionData(); none is typed into the HTML.
+ * Ids are listed in notes/ui-ids.md.
  */
+
+const moneyFormat = new Intl.NumberFormat('en-CA', {
+    style: 'currency', currency: 'CAD', minimumFractionDigits: 0, maximumFractionDigits: 0
+});
+
+/** Whole-dollar currency. Non-finite values show as '-'. */
+export function formatCurrency(value) {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return '-';
+    // Avoid "-$0" for tiny negative float noise.
+    const v = Math.abs(value) < 0.5 ? 0 : value;
+    return moneyFormat.format(v);
+}
+
+/** A computed share or marginal rate, as a percentage with fixed decimals. */
+export function formatPercent(rate, digits = 2) {
+    if (typeof rate !== 'number' || !Number.isFinite(rate)) return '-';
+    const p = rate * 100;
+    return `${(Math.abs(p) < 0.005 ? 0 : p).toFixed(digits)}%`;
+}
+
+/** A statutory rate from the data (e.g. 0.0505, 0.0043): 2 to 3 decimals, no float noise. */
+export function formatRate(rate) {
+    if (typeof rate !== 'number' || !Number.isFinite(rate)) return '-';
+    let s = (rate * 100).toFixed(3);
+    if (s.endsWith('0')) s = s.slice(0, -1);
+    return `${s}%`;
+}
+
+const PENSION_DEDUCTION_LABELS = {
+    cppEnhanced: 'Enhanced CPP contributions (first additional)',
+    qppEnhanced: 'Enhanced QPP contributions (first additional)',
+    cpp2: 'CPP2 contributions (second additional)',
+    qpp2: 'QPP2 contributions (second additional)'
+};
 
 export class DisplayManager {
     constructor() {
@@ -9,847 +46,675 @@ export class DisplayManager {
     }
 
     /**
-     * Initialize DOM element references for display elements
-     * @returns {Object} Object containing DOM element references
+     * One literal lookup per id so a grep of js/ lists every id this module
+     * needs (docs/learnings/test-methodology-and-coverage.md, structural checks).
      */
     initializeElements() {
-        return {
-            // Federal display elements
-            federalAgiDisplay: document.getElementById('federal-agi-display'),
-            federalTaxableIncomeDisplay: document.getElementById('federal-taxable-income-display'),
-            
-            // State display elements
-            stateAgiDisplay: document.getElementById('state-agi-display'),
-            stateTaxableIncomeDisplay: document.getElementById('state-taxable-income-display'),
-
-            // Visualization bar elements
-            barTakeHome: document.getElementById('bar-take-home'),
-            barFederal: document.getElementById('bar-federal'),
-            barState: document.getElementById('bar-state'),
-            barCounty: document.getElementById('bar-county'),
-
-            // Percentage display elements
-            percentageTakeHome: document.getElementById('percentage-take-home'),
-            percentageFederal: document.getElementById('percentage-federal'),
-            percentageState: document.getElementById('percentage-state'),
-            percentageCounty: document.getElementById('percentage-county'),
-
-            // Tax summary elements
-            federalAgiSummary: document.getElementById('federal-agi-summary'),
-            federalTaxableSummary: document.getElementById('federal-taxable-summary'),
-            federalTaxSummary: document.getElementById('federal-tax-summary'),
-            federalRateSummary: document.getElementById('federal-rate-summary'),
-            
-            stateAgiSummary: document.getElementById('state-agi-summary'),
-            stateTaxableSummary: document.getElementById('state-taxable-summary'),
-            stateTaxSummary: document.getElementById('state-tax-summary'),
-            countyTaxSummary: document.getElementById('county-tax-summary'),
-            stateRateSummary: document.getElementById('state-rate-summary'),
-            
-            totalFederalDisplay: document.getElementById('total-federal-display'),
-            totalStateDisplay: document.getElementById('total-state-display'),
-            totalCountyDisplay: document.getElementById('total-county-display'),
-            totalAllTaxesDisplay: document.getElementById('total-all-taxes-display'),
-            totalTakeHomeDisplay: document.getElementById('total-take-home-display'),
-            totalEffectiveRateDisplay: document.getElementById('total-effective-rate-display'),
-
-            // Visual calculation elements - Custom
-            visualGrossIncome: document.getElementById('visual-gross-income'),
-            visualAdjustments: document.getElementById('visual-adjustments'),
-            visualAgi: document.getElementById('visual-agi'),
-            visualAgi2: document.getElementById('visual-agi-2'),
-            visualDeductions: document.getElementById('visual-deductions'),
-            visualTaxableIncome: document.getElementById('visual-taxable-income'),
-            visualTaxableIncome2: document.getElementById('visual-taxable-income-2'),
-            visualTaxRate: document.getElementById('visual-tax-rate'),
-            visualPreCreditTax: document.getElementById('visual-pre-credit-tax'),
-            visualPreCreditTax2: document.getElementById('visual-pre-credit-tax-2'),
-            visualCredits: document.getElementById('visual-credits'),
-            visualTotalTax: document.getElementById('visual-total-tax'),
-            visualGrossIncome2: document.getElementById('visual-gross-income-2'),
-            visualTotalTax2: document.getElementById('visual-total-tax-2'),
-            visualTakeHome: document.getElementById('visual-take-home'),
-            visualTotalTax3: document.getElementById('visual-total-tax-3'),
-            visualGrossIncome3: document.getElementById('visual-gross-income-3'),
-            visualEffectiveRate: document.getElementById('visual-effective-rate'),
-
-            // Visual calculation elements - Baseline
-            baselineGrossIncome: document.getElementById('baseline-gross-income'),
-            baselineAdjustments: document.getElementById('baseline-adjustments'),
-            baselineAgi: document.getElementById('baseline-agi'),
-            baselineAgi2: document.getElementById('baseline-agi-2'),
-            baselineDeductions: document.getElementById('baseline-deductions'),
-            baselineTaxableIncome: document.getElementById('baseline-taxable-income'),
-            baselineTaxableIncome2: document.getElementById('baseline-taxable-income-2'),
-            baselineTaxRate: document.getElementById('baseline-tax-rate'),
-            baselinePreCreditTax: document.getElementById('baseline-pre-credit-tax'),
-            baselinePreCreditTax2: document.getElementById('baseline-pre-credit-tax-2'),
-            baselineCredits: document.getElementById('baseline-credits'),
-            baselineTotalTax: document.getElementById('baseline-total-tax'),
-            baselineGrossIncome2: document.getElementById('baseline-gross-income-2'),
-            baselineTotalTax2: document.getElementById('baseline-total-tax-2'),
-            baselineTakeHome: document.getElementById('baseline-take-home'),
-            baselineTotalTax3: document.getElementById('baseline-total-tax-3'),
-            baselineGrossIncome3: document.getElementById('baseline-gross-income-3'),
-            baselineEffectiveRate: document.getElementById('baseline-effective-rate'),
-
-            // Maryland visual calculation elements - Custom
-            marylandVisualGrossIncome: document.getElementById('maryland-visual-gross-income'),
-            marylandVisualAdjustments: document.getElementById('maryland-visual-adjustments'),
-            marylandVisualAgi: document.getElementById('maryland-visual-agi'),
-            marylandVisualAgi2: document.getElementById('maryland-visual-agi-2'),
-            marylandVisualDeductions: document.getElementById('maryland-visual-deductions'),
-            marylandVisualTaxableIncome: document.getElementById('maryland-visual-taxable-income'),
-            marylandVisualTaxableIncome2: document.getElementById('maryland-visual-taxable-income-2'),
-            marylandVisualTaxableIncome3: document.getElementById('maryland-visual-taxable-income-3'),
-            marylandVisualStateTaxRate: document.getElementById('maryland-visual-state-tax-rate'),
-            marylandVisualStatePreCreditTax: document.getElementById('maryland-visual-state-pre-credit-tax'),
-            marylandVisualCountyTaxRate: document.getElementById('maryland-visual-county-tax-rate'),
-            marylandVisualCountyTax: document.getElementById('maryland-visual-county-tax'),
-            marylandVisualStatePreCreditTax2: document.getElementById('maryland-visual-state-pre-credit-tax-2'),
-            marylandVisualCredits: document.getElementById('maryland-visual-credits'),
-            marylandVisualTotalStateTax: document.getElementById('maryland-visual-total-state-tax'),
-            marylandVisualTotalStateTax2: document.getElementById('maryland-visual-total-state-tax-2'),
-            marylandVisualCountyTax2: document.getElementById('maryland-visual-county-tax-2'),
-            marylandVisualCombinedTax: document.getElementById('maryland-visual-combined-tax'),
-            marylandVisualGrossIncome2: document.getElementById('maryland-visual-gross-income-2'),
-            marylandVisualCombinedTax2: document.getElementById('maryland-visual-combined-tax-2'),
-            marylandVisualTakeHome: document.getElementById('maryland-visual-take-home'),
-            marylandVisualCombinedTax3: document.getElementById('maryland-visual-combined-tax-3'),
-            marylandVisualGrossIncome3: document.getElementById('maryland-visual-gross-income-3'),
-            marylandVisualEffectiveRate: document.getElementById('maryland-visual-effective-rate'),
-
-            // Maryland visual calculation elements - Baseline
-            marylandBaselineGrossIncome: document.getElementById('maryland-baseline-gross-income'),
-            marylandBaselineAdjustments: document.getElementById('maryland-baseline-adjustments'),
-            marylandBaselineAgi: document.getElementById('maryland-baseline-agi'),
-            marylandBaselineAgi2: document.getElementById('maryland-baseline-agi-2'),
-            marylandBaselineDeductions: document.getElementById('maryland-baseline-deductions'),
-            marylandBaselineTaxableIncome: document.getElementById('maryland-baseline-taxable-income'),
-            marylandBaselineTaxableIncome2: document.getElementById('maryland-baseline-taxable-income-2'),
-            marylandBaselineTaxableIncome3: document.getElementById('maryland-baseline-taxable-income-3'),
-            marylandBaselineStateTaxRate: document.getElementById('maryland-baseline-state-tax-rate'),
-            marylandBaselineStatePreCreditTax: document.getElementById('maryland-baseline-state-pre-credit-tax'),
-            marylandBaselineCountyTaxRate: document.getElementById('maryland-baseline-county-tax-rate'),
-            marylandBaselineCountyTax: document.getElementById('maryland-baseline-county-tax'),
-            marylandBaselineStatePreCreditTax2: document.getElementById('maryland-baseline-state-pre-credit-tax-2'),
-            marylandBaselineCredits: document.getElementById('maryland-baseline-credits'),
-            marylandBaselineTotalStateTax: document.getElementById('maryland-baseline-total-state-tax'),
-            marylandBaselineTotalStateTax2: document.getElementById('maryland-baseline-total-state-tax-2'),
-            marylandBaselineCountyTax2: document.getElementById('maryland-baseline-county-tax-2'),
-            marylandBaselineCombinedTax: document.getElementById('maryland-baseline-combined-tax'),
-            marylandBaselineGrossIncome2: document.getElementById('maryland-baseline-gross-income-2'),
-            marylandBaselineCombinedTax2: document.getElementById('maryland-baseline-combined-tax-2'),
-            marylandBaselineTakeHome: document.getElementById('maryland-baseline-take-home'),
-            marylandBaselineCombinedTax3: document.getElementById('maryland-baseline-combined-tax-3'),
-            marylandBaselineGrossIncome3: document.getElementById('maryland-baseline-gross-income-3'),
-            marylandBaselineEffectiveRate: document.getElementById('maryland-baseline-effective-rate')
+        const elements = {
+            'app-error': document.getElementById('app-error'),
+            'pct-take-home': document.getElementById('pct-take-home'),
+            'pct-federal': document.getElementById('pct-federal'),
+            'pct-provincial': document.getElementById('pct-provincial'),
+            'pct-payroll': document.getElementById('pct-payroll'),
+            'pct-provincial-label': document.getElementById('pct-provincial-label'),
+            'bar-take-home': document.getElementById('bar-take-home'),
+            'bar-federal': document.getElementById('bar-federal'),
+            'bar-provincial': document.getElementById('bar-provincial'),
+            'bar-payroll': document.getElementById('bar-payroll'),
+            'legend-provincial-name': document.getElementById('legend-provincial-name'),
+            'sum-fed-net-income': document.getElementById('sum-fed-net-income'),
+            'sum-fed-after-credits': document.getElementById('sum-fed-after-credits'),
+            'sum-fed-abatement-row': document.getElementById('sum-fed-abatement-row'),
+            'sum-fed-abatement': document.getElementById('sum-fed-abatement'),
+            'sum-fed-tax-label': document.getElementById('sum-fed-tax-label'),
+            'sum-prov-after-credits': document.getElementById('sum-prov-after-credits'),
+            'sum-prov-surtax-row': document.getElementById('sum-prov-surtax-row'),
+            'sum-prov-surtax': document.getElementById('sum-prov-surtax'),
+            'sum-prov-reductions-list': document.getElementById('sum-prov-reductions-list'),
+            'sum-prov-tax-label': document.getElementById('sum-prov-tax-label'),
+            'sum-fed-taxable': document.getElementById('sum-fed-taxable'),
+            'sum-fed-tax': document.getElementById('sum-fed-tax'),
+            'sum-fed-marginal': document.getElementById('sum-fed-marginal'),
+            'sum-prov-title': document.getElementById('sum-prov-title'),
+            'sum-prov-taxable': document.getElementById('sum-prov-taxable'),
+            'sum-prov-health-row': document.getElementById('sum-prov-health-row'),
+            'sum-prov-health-label': document.getElementById('sum-prov-health-label'),
+            'sum-prov-health': document.getElementById('sum-prov-health'),
+            'sum-prov-tax': document.getElementById('sum-prov-tax'),
+            'sum-prov-marginal': document.getElementById('sum-prov-marginal'),
+            'sum-pension-label': document.getElementById('sum-pension-label'),
+            'sum-pension': document.getElementById('sum-pension'),
+            'sum-pension2-label': document.getElementById('sum-pension2-label'),
+            'sum-pension2': document.getElementById('sum-pension2'),
+            'sum-ei': document.getElementById('sum-ei'),
+            'sum-qpip-row': document.getElementById('sum-qpip-row'),
+            'sum-qpip': document.getElementById('sum-qpip'),
+            'sum-payroll-total': document.getElementById('sum-payroll-total'),
+            'total-federal': document.getElementById('total-federal'),
+            'total-provincial-label': document.getElementById('total-provincial-label'),
+            'total-provincial': document.getElementById('total-provincial'),
+            'total-payroll': document.getElementById('total-payroll'),
+            'total-deductions': document.getElementById('total-deductions'),
+            'total-take-home': document.getElementById('total-take-home'),
+            'total-effective-rate': document.getElementById('total-effective-rate'),
+            'total-effective-income-tax-rate': document.getElementById('total-effective-income-tax-rate'),
+            'total-marginal-rate': document.getElementById('total-marginal-rate'),
+            'total-marginal-rate-payroll': document.getElementById('total-marginal-rate-payroll'),
+            'payroll-math-title': document.getElementById('payroll-math-title'),
+            'payroll-flags': document.getElementById('payroll-flags'),
+            'payroll-steps': document.getElementById('payroll-steps'),
+            'payroll-total': document.getElementById('payroll-total'),
+            'payroll-marginal-rate': document.getElementById('payroll-marginal-rate'),
+            'payroll-sources': document.getElementById('payroll-sources'),
+            'fed-math-title': document.getElementById('fed-math-title'),
+            'fed-flags': document.getElementById('fed-flags'),
+            'fed-steps': document.getElementById('fed-steps'),
+            'fed-deductions-table': document.getElementById('fed-deductions-table'),
+            'fed-deductions-total': document.getElementById('fed-deductions-total'),
+            'fed-bracket-table': document.getElementById('fed-bracket-table'),
+            'fed-bracket-total-income': document.getElementById('fed-bracket-total-income'),
+            'fed-bracket-total-tax': document.getElementById('fed-bracket-total-tax'),
+            'fed-credits-table': document.getElementById('fed-credits-table'),
+            'fed-credits-total': document.getElementById('fed-credits-total'),
+            'fed-extras': document.getElementById('fed-extras'),
+            'fed-net-tax': document.getElementById('fed-net-tax'),
+            'fed-marginal-rate': document.getElementById('fed-marginal-rate'),
+            'fed-sources': document.getElementById('fed-sources'),
+            'prov-math-title': document.getElementById('prov-math-title'),
+            'prov-flags': document.getElementById('prov-flags'),
+            'prov-steps': document.getElementById('prov-steps'),
+            'prov-deductions-table': document.getElementById('prov-deductions-table'),
+            'prov-deductions-total': document.getElementById('prov-deductions-total'),
+            'prov-bracket-table': document.getElementById('prov-bracket-table'),
+            'prov-bracket-total-income': document.getElementById('prov-bracket-total-income'),
+            'prov-bracket-total-tax': document.getElementById('prov-bracket-total-tax'),
+            'prov-credits-table': document.getElementById('prov-credits-table'),
+            'prov-credits-total': document.getElementById('prov-credits-total'),
+            'prov-extras': document.getElementById('prov-extras'),
+            'prov-net-tax': document.getElementById('prov-net-tax'),
+            'prov-marginal-rate': document.getElementById('prov-marginal-rate'),
+            'prov-sources': document.getElementById('prov-sources')
         };
-    }
-
-    /**
-     * Format number as currency
-     * @param {number} value - Number to format
-     * @returns {string} Formatted currency string
-     */
-    formatCurrency(value) {
-        return value.toLocaleString('en-US', { 
-            style: 'currency', 
-            currency: 'USD', 
-            minimumFractionDigits: 0, 
-            maximumFractionDigits: 0 
+        Object.entries(elements).forEach(([id, e]) => {
+            if (!e) console.warn(`DisplayManager: missing #${id}`);
         });
+        return elements;
     }
 
-    /**
-     * Format number as percentage
-     * @param {number} value - Number to format
-     * @returns {string} Formatted percentage string
-     */
-    formatPercentage(value) {
-        return value.toFixed(2) + '%';
+    el(id) {
+        return this.elements[id] || null;
     }
 
-    /**
-     * Update federal and state AGI displays
-     * @param {Object} calculation - Tax calculation results
-     */
-    updateAgiDisplays(calculation) {
-        if (this.elements.federalAgiDisplay) {
-            this.elements.federalAgiDisplay.textContent = this.formatCurrency(calculation.federal.agi);
-        }
-        if (this.elements.federalTaxableIncomeDisplay) {
-            this.elements.federalTaxableIncomeDisplay.textContent = this.formatCurrency(calculation.federal.taxableIncome);
-        }
-        if (this.elements.stateAgiDisplay) {
-            this.elements.stateAgiDisplay.textContent = this.formatCurrency(calculation.state.agi);
-        }
-        if (this.elements.stateTaxableIncomeDisplay) {
-            this.elements.stateTaxableIncomeDisplay.textContent = this.formatCurrency(calculation.state.taxableIncome);
-        }
+    setText(id, text) {
+        const e = this.el(id);
+        if (e) e.textContent = text;
     }
 
+    setHidden(id, hidden) {
+        const e = this.el(id);
+        if (e) e.classList.toggle('hidden', hidden);
+    }
+
+    // Kept for callers that used the old method names.
+    formatCurrency(value) { return formatCurrency(value); }
+    formatPercentage(rate) { return formatPercent(rate); }
+
+    // ------------------------------------------------------------------
+    // Errors
+    // ------------------------------------------------------------------
+
+    showError(message) {
+        this.setText('app-error', message);
+        this.setHidden('app-error', false);
+    }
+
+    clearError() {
+        this.setText('app-error', '');
+        this.setHidden('app-error', true);
+    }
+
+    // ------------------------------------------------------------------
+    // Entry point
+    // ------------------------------------------------------------------
+
     /**
-     * Update visualization bar with federal, state, and county taxes
-     * @param {Object} calculation - Tax calculation results
+     * @param {object} result - TaxCalculator.calculate() result
+     * @param {{fed: object, prov: object, payroll: object}} data - getJurisdictionData() modules
      */
-    updateVisualizationBar(calculation) {
-        const { federal, state, county, totals } = calculation;
-        const totalIncome = totals.primaryIncome;
+    updateAll(result, data) {
+        this.clearError();
+        this.updateCalculator(result, data);
+        this.updateJurisdictionMath('fed', result.federal, result, data.fed, data);
+        this.updateJurisdictionMath('prov', result.provincial, result, data.prov, data);
+        this.updatePayrollMath(result, data.payroll);
+    }
 
-        if (totalIncome > 0) {
-            // Use the exact effective rates from tax calculation to match Tax Summary
-            const federalPercent = federal.effectiveRate;
-            const statePercent = state.effectiveRate;
-            const countyPercent = county.effectiveRate;
-            
-            // Calculate combined state+county rate to match Tax Summary exactly
-            const combinedStateCountyPercent = state.effectiveRate + county.effectiveRate;
-            const takeHomePercent = Math.max(0, 100 - federalPercent - combinedStateCountyPercent);
+    // ------------------------------------------------------------------
+    // Calculator tab
+    // ------------------------------------------------------------------
 
-            // Update bar widths
-            this.elements.barTakeHome.style.width = `${takeHomePercent}%`;
-            this.elements.barFederal.style.width = `${federalPercent}%`;
-            this.elements.barState.style.width = `${statePercent}%`;
-            this.elements.barCounty.style.width = `${countyPercent}%`;
-            
-            // Clear text content from bar segments (percentages now shown above)
-            this.elements.barTakeHome.textContent = '';
-            this.elements.barFederal.textContent = '';
-            this.elements.barState.textContent = '';
-            this.elements.barCounty.textContent = '';
+    updateCalculator(r, data = {}) {
+        const income = r.input.employmentIncome;
+        const provName = r.input.provinceName;
+        const share = v => (income > 0 ? v / income : 0);
 
-            // Update percentage display area - use same formatting as Tax Summary (2 decimal places)
-            if (this.elements.percentageTakeHome) {
-                this.elements.percentageTakeHome.textContent = this.formatPercentage(takeHomePercent);
+        const shares = {
+            'take-home': income > 0 ? share(r.totals.takeHome) : 1,
+            federal: share(r.federal.net),
+            provincial: share(r.provincial.net),
+            payroll: share(r.payroll.total)
+        };
+        Object.entries(shares).forEach(([key, s]) => {
+            this.setText(`pct-${key}`, formatPercent(s, 1));
+            const bar = this.el(`bar-${key}`);
+            if (bar) {
+                const width = Math.max(0, s) * 100;
+                bar.style.width = `${width}%`;
+                bar.textContent = width >= 9 ? `${width.toFixed(0)}%` : '';
             }
-            if (this.elements.percentageFederal) {
-                this.elements.percentageFederal.textContent = this.formatPercentage(federalPercent);
-            }
-            if (this.elements.percentageState) {
-                this.elements.percentageState.textContent = this.formatPercentage(statePercent);
-            }
-            if (this.elements.percentageCounty) {
-                this.elements.percentageCounty.textContent = this.formatPercentage(countyPercent);
-            }
+        });
+        this.setText('pct-provincial-label', `${provName} tax`);
+        this.setText('legend-provincial-name', `${provName} tax`);
+        const provBar = this.el('bar-provincial');
+        if (provBar) provBar.title = `${provName} tax`;
+
+        // Federal card
+        this.setText('sum-fed-net-income', formatCurrency(r.federal.netIncome));
+        this.setText('sum-fed-taxable', formatCurrency(r.federal.taxableIncome));
+        this.setText('sum-fed-after-credits', formatCurrency(r.federal.afterCredits));
+        const hasAbatement = r.input.province === 'qc';
+        this.setHidden('sum-fed-abatement-row', !hasAbatement);
+        this.setText('sum-fed-abatement', `−${formatCurrency(r.federal.abatement)}`);
+        this.setText('sum-fed-tax-label', hasAbatement ? 'Federal tax (after abatement):' : 'Federal tax:');
+        this.setText('sum-fed-tax', formatCurrency(r.federal.net));
+        this.setText('sum-fed-marginal', formatPercent(r.federal.marginalRate));
+
+        // Provincial card
+        this.setText('sum-prov-title', `${provName} tax`);
+        this.setText('sum-prov-taxable', formatCurrency(r.provincial.taxableIncome));
+        // Components of provincial tax, in the engine's order, so the lines add up to the total.
+        const prov = r.provincial;
+        const hasSurtax = Boolean(data.prov && data.prov.surtax);
+        this.setText('sum-prov-after-credits', formatCurrency(prov.afterCredits));
+        this.setHidden('sum-prov-surtax-row', !hasSurtax);
+        this.setText('sum-prov-surtax', `+${formatCurrency(prov.surtax)}`);
+        const redHost = this.el('sum-prov-reductions-list');
+        if (redHost) {
+            redHost.replaceChildren(...prov.reductions.map(x => {
+                const row = document.createElement('div');
+                row.className = 'summary-row';
+                const l = document.createElement('span');
+                l.className = 'summary-label';
+                l.textContent = `${x.name}:`;
+                const v = document.createElement('span');
+                v.className = 'summary-value';
+                v.textContent = `−${formatCurrency(x.amount)}`;
+                row.append(l, v);
+                return row;
+            }));
+        }
+        const parts = [];
+        if (hasSurtax) parts.push('surtax');
+        if (prov.reductions.length) parts.push('reductions');
+        if (prov.healthPremiumName) parts.push(prov.healthPremiumName);
+        this.setText('sum-prov-tax-label', parts.length
+            ? `${provName} tax (incl. ${parts.join(', ')}):`
+            : `${provName} tax:`);
+        const hasHealth = Boolean(r.provincial.healthPremiumName);
+        this.setHidden('sum-prov-health-row', !hasHealth);
+        if (hasHealth) {
+            this.setText('sum-prov-health-label', `${r.provincial.healthPremiumName}:`);
+            this.setText('sum-prov-health', `+${formatCurrency(r.provincial.healthPremium)}`);
+        }
+        this.setText('sum-prov-tax', formatCurrency(r.provincial.net));
+        this.setText('sum-prov-marginal', formatPercent(r.provincial.marginalRate));
+
+        // Payroll card
+        const p = r.payroll;
+        const isQpp = p.plan === 'QPP';
+        const pension = isQpp ? p.qpp : p.cpp;
+        const pension2 = isQpp ? p.qpp2 : p.cpp2;
+        this.setText('sum-pension-label', `${p.plan} contributions:`);
+        this.setText('sum-pension', formatCurrency(pension));
+        this.setText('sum-pension2-label', `${p.plan}2 contributions:`);
+        this.setText('sum-pension2', formatCurrency(pension2));
+        this.setText('sum-ei', formatCurrency(p.ei));
+        this.setHidden('sum-qpip-row', !isQpp);
+        this.setText('sum-qpip', formatCurrency(p.qpip));
+        this.setText('sum-payroll-total', formatCurrency(p.total));
+
+        // Totals
+        const t = r.totals;
+        this.setText('total-federal', formatCurrency(r.federal.net));
+        this.setText('total-provincial-label', `${provName} tax`);
+        this.setText('total-provincial', formatCurrency(r.provincial.net));
+        this.setText('total-payroll', formatCurrency(t.payroll));
+        this.setText('total-deductions', formatCurrency(t.totalDeductions));
+        this.setText('total-take-home', formatCurrency(t.takeHome));
+        this.setText('total-effective-rate', formatPercent(t.effectiveRate));
+        this.setText('total-effective-income-tax-rate', formatPercent(t.effectiveIncomeTaxRate));
+        this.setText('total-marginal-rate', formatPercent(t.marginalRateIncomeTax));
+        this.setText('total-marginal-rate-payroll', formatPercent(t.marginalRateIncludingPayroll));
+    }
+
+    // ------------------------------------------------------------------
+    // Federal / provincial tax-math tabs
+    // ------------------------------------------------------------------
+
+    /**
+     * @param {'fed'|'prov'} prefix
+     * @param {object} j - JurisdictionResult
+     * @param {object} r - full result
+     * @param {object} jData - the jurisdiction's data module
+     * @param {object} data - all data modules ({fed, prov, payroll})
+     */
+    updateJurisdictionMath(prefix, j, r, jData, data) {
+        const isFed = prefix === 'fed';
+        const year = r.input.year;
+        const taxLabel = isFed ? 'Federal tax' : `${j.name} tax`;
+
+        this.setText(`${prefix}-math-title`, isFed
+            ? `Federal tax math, ${year}`
+            : `${j.name} tax math, ${year}`);
+
+        this.renderFlags(`${prefix}-flags`, jData, j.name);
+        this.renderSources(`${prefix}-sources`, jData);
+
+        // Deductions from income
+        const d = r.deductionsFromIncome;
+        const dedRows = Object.keys(PENSION_DEDUCTION_LABELS)
+            .filter(k => k in d)
+            .map(k => [PENSION_DEDUCTION_LABELS[k], d[k]]);
+        dedRows.push(['Other deductions (e.g. RRSP)', d.other]);
+        if (!isFed && r.input.province === 'qc') {
+            dedRows.push(['Deduction for workers (Quebec return only)', d.qcWorkerDeduction]);
+        }
+        const dedTotal = isFed ? d.federalTotal : d.provincialTotal;
+        this.fillTable(`${prefix}-deductions-table`, dedRows.map(([label, v]) => [label, formatCurrency(v)]));
+        this.setText(`${prefix}-deductions-total`, formatCurrency(dedTotal));
+
+        // Brackets
+        let activeIndex = -1;
+        j.brackets.forEach((b, i) => { if (b.taxableInBracket > 0) activeIndex = i; });
+        this.fillTable(`${prefix}-bracket-table`, j.brackets.map(b => [
+            formatCurrency(b.from),
+            Number.isFinite(b.to) ? formatCurrency(b.to) : 'and up',
+            formatRate(b.rate),
+            formatCurrency(b.taxableInBracket),
+            formatCurrency(b.tax)
+        ]), activeIndex);
+        this.setText(`${prefix}-bracket-total-income`, formatCurrency(j.taxableIncome));
+        this.setText(`${prefix}-bracket-total-tax`, formatCurrency(j.bracketTax));
+
+        // Credits
+        this.fillTable(`${prefix}-credits-table`, j.creditsDetail.map(c => [
+            c.name, formatCurrency(c.amount), formatRate(c.rate), formatCurrency(c.credit)
+        ]));
+        this.setText(`${prefix}-credits-total`, formatCurrency(j.creditsTotal));
+
+        // Steps
+        const steps = [];
+        steps.push(this.step(
+            { label: 'Employment income', value: formatCurrency(r.input.employmentIncome), cls: 'calc-gross-income' },
+            '−',
+            { label: 'Deductions from income', value: formatCurrency(dedTotal), cls: 'calc-adjustments' },
+            { label: 'Net income', value: formatCurrency(j.netIncome), cls: 'calc-result' }
+        ));
+        const topRate = activeIndex >= 0 ? formatRate(j.brackets[activeIndex].rate) : formatRate(j.brackets[0].rate);
+        steps.push(this.step(
+            { label: 'Taxable income', value: formatCurrency(j.taxableIncome), cls: 'calc-result' },
+            '×',
+            { label: 'Brackets (top rate reached)', value: topRate, cls: 'calc-tax-rate' },
+            { label: 'Tax on brackets', value: formatCurrency(j.bracketTax), cls: 'calc-pre-credit-tax' },
+            'Each slice of income is taxed at its own bracket rate; see the bracket table below.'
+        ));
+
+        // Optional steps, in the engine's order of operations (notes/engine.md).
+        const optional = [];
+        if (jData && jData.surtax) {
+            optional.push({ op: '+', label: 'Surtax', value: j.surtax, after: j.afterSurtax });
+        }
+        if (j.reductions.length > 0) {
+            const label = j.reductions.length === 1 ? j.reductions[0].name : 'Tax reductions';
+            optional.push({ op: '−', label, value: j.reductionsTotal, after: j.afterSurtax - j.reductionsTotal });
+        }
+        if (isFed && r.input.province === 'qc') {
+            const abRate = data.fed && data.fed.abatement ? ` (${formatRate(data.fed.abatement.quebec)})` : '';
+            optional.push({ op: '−', label: `Quebec abatement${abRate}`, value: j.abatement,
+                after: j.afterSurtax - j.reductionsTotal - j.abatement });
+        }
+        if (j.healthPremiumName) {
+            optional.push({ op: '+', label: j.healthPremiumName, value: j.healthPremium, after: j.net });
+        }
+
+        const creditsBox = { label: `Credits at ${formatRate(j.creditRate)}`, value: formatCurrency(j.creditsTotal), cls: 'calc-credits' };
+        const afterCreditsLabel = optional.length ? 'Tax after credits' : taxLabel;
+        const afterCreditsValue = optional.length ? j.afterCredits : j.net;
+        steps.push(this.step(
+            { label: 'Tax on brackets', value: formatCurrency(j.bracketTax), cls: 'calc-pre-credit-tax' },
+            '−',
+            creditsBox,
+            { label: afterCreditsLabel, value: formatCurrency(afterCreditsValue), cls: optional.length ? 'calc-result' : 'calc-total-tax' },
+            j.bracketTax < j.creditsTotal ? 'Credits can only bring tax down to $0; they are not refundable.' : ''
+        ));
+
+        let prevLabel = 'Tax after credits';
+        let prevValue = j.afterCredits;
+        optional.forEach((o, i) => {
+            const last = i === optional.length - 1;
+            const after = last ? j.net : o.after;
+            const afterLabel = last ? taxLabel : `After ${o.label.toLowerCase()}`;
+            steps.push(this.step(
+                { label: prevLabel, value: formatCurrency(prevValue), cls: 'calc-result' },
+                o.op,
+                { label: o.label, value: formatCurrency(o.value), cls: o.op === '+' ? 'calc-pre-credit-tax' : 'calc-credits' },
+                { label: afterLabel, value: formatCurrency(after), cls: last ? 'calc-total-tax' : 'calc-result' }
+            ));
+            prevLabel = afterLabel;
+            prevValue = after;
+        });
+
+        const stepsEl = this.el(`${prefix}-steps`);
+        if (stepsEl) stepsEl.replaceChildren(...steps);
+
+        this.renderExtras(`${prefix}-extras`, j, jData, r, isFed, data);
+
+        this.setText(`${prefix}-net-tax`, formatCurrency(j.net));
+        this.setText(`${prefix}-marginal-rate`, formatPercent(j.marginalRate));
+    }
+
+    /** Surtax tiers, reductions and health premium tables, only where the jurisdiction has them. */
+    renderExtras(id, j, jData, r, isFed, data) {
+        const host = this.el(id);
+        if (!host) return;
+        const blocks = [];
+
+        if (jData && jData.surtax && Array.isArray(jData.surtax.tiers)) {
+            blocks.push(this.tableBlock(
+                `${j.name} surtax`,
+                ['Tax after credits above', 'Surtax rate'],
+                jData.surtax.tiers.map(t => [formatCurrency(t.threshold), formatRate(t.rate)]),
+                ['Surtax', formatCurrency(j.surtax)],
+                'Each tier applies to the part of tax after credits above its threshold; the tiers add up.'
+            ));
+        }
+
+        if (j.reductions.length > 0) {
+            blocks.push(this.tableBlock(
+                'Tax reductions',
+                ['Reduction', 'Before cap', 'Applied'],
+                j.reductions.map(x => [x.name, formatCurrency(x.potential), formatCurrency(x.amount)]),
+                ['Total applied', '', formatCurrency(j.reductionsTotal)],
+                'Reductions together cannot exceed the tax left after credits and surtax.'
+            ));
+        }
+
+        if (isFed && r.input.province === 'qc' && data.fed && data.fed.abatement) {
+            blocks.push(this.tableBlock(
+                'Quebec abatement',
+                ['Abatement rate', 'Abatement'],
+                [[formatRate(data.fed.abatement.quebec), formatCurrency(j.abatement)]],
+                null,
+                'Quebec residents get this refundable reduction of federal tax because Quebec runs some programs the federal government funds elsewhere.'
+            ));
+        }
+
+        if (j.healthPremiumName && jData && jData.healthPremium && Array.isArray(jData.healthPremium.tiers)) {
+            blocks.push(this.tableBlock(
+                j.healthPremiumName,
+                ['Taxable income from', 'To', 'Premium'],
+                jData.healthPremium.tiers.map(t => [
+                    formatCurrency(t.from),
+                    t.to === null || !Number.isFinite(t.to) ? 'and up' : formatCurrency(t.to),
+                    t.rate > 0
+                        ? `${formatCurrency(t.base)} + ${formatRate(t.rate)} over ${formatCurrency(t.from)}, max ${formatCurrency(t.max)}`
+                        : formatCurrency(t.base)
+                ]),
+                [`Your premium (taxable income ${formatCurrency(j.taxableIncome)})`, '', formatCurrency(j.healthPremium)],
+                'Added after credits and reductions; credits do not reduce it.'
+            ));
+        }
+
+        host.replaceChildren(...blocks);
+    }
+
+    // ------------------------------------------------------------------
+    // Payroll tab
+    // ------------------------------------------------------------------
+
+    updatePayrollMath(r, pData) {
+        const p = r.payroll;
+        const det = p.detail;
+        const isQpp = p.plan === 'QPP';
+        const pk = isQpp ? 'qpp' : 'cpp';
+        const p2k = isQpp ? 'qpp2' : 'cpp2';
+        const eik = det.ei.quebecRate ? 'eiQuebec' : 'ei';
+        const pd = pData || {};
+        const pension = pd[pk] || {};
+        const pension2 = pd[p2k] || {};
+        const ei = pd[eik] || {};
+        const qpip = pd.qpip || {};
+
+        this.setText('payroll-math-title', `Payroll math, ${r.input.year}: ${p.plan} plan`);
+        this.renderFlags('payroll-flags', pData, 'payroll');
+        this.renderSources('payroll-sources', pData);
+
+        const steps = [];
+        steps.push(this.step(
+            { label: 'Pensionable earnings', value: formatCurrency(det.pension.pensionableEarnings), cls: 'calc-gross-income' },
+            '×',
+            { label: `${p.plan} rate`, value: formatRate(det.pension.rate), cls: 'calc-tax-rate' },
+            { label: `${p.plan} contributions`, value: formatCurrency(det.pension.total), cls: 'calc-total-tax' },
+            `Salary up to the maximum pensionable earnings (${formatCurrency(pension.ympe)}) minus the `
+            + `${formatCurrency(pension.basicExemption)} basic exemption; maximum ${formatCurrency(pension.maxContribution)}. `
+            + `Base ${formatRate(det.pension.baseRate)} = ${formatCurrency(det.pension.base)} (claimed as a credit); `
+            + `enhanced ${formatRate(det.pension.enhancedRate)} = ${formatCurrency(det.pension.enhanced)} (deducted from income).`
+        ));
+        steps.push(this.step(
+            { label: 'Earnings between the two ceilings', value: formatCurrency(det.pension2.earnings), cls: 'calc-gross-income' },
+            '×',
+            { label: `${p.plan}2 rate`, value: formatRate(det.pension2.rate), cls: 'calc-tax-rate' },
+            { label: `${p.plan}2 contributions`, value: formatCurrency(det.pension2.total), cls: 'calc-total-tax' },
+            `Salary between ${formatCurrency(pension.ympe)} and ${formatCurrency(pension2.yampe)}; `
+            + `maximum ${formatCurrency(pension2.max)}. Deducted from income.`
+        ));
+        steps.push(this.step(
+            { label: 'Insurable earnings', value: formatCurrency(det.ei.insurableEarnings), cls: 'calc-gross-income' },
+            '×',
+            { label: det.ei.quebecRate ? 'EI rate (Quebec)' : 'EI rate', value: formatRate(det.ei.rate), cls: 'calc-tax-rate' },
+            { label: 'EI premiums', value: formatCurrency(det.ei.total), cls: 'calc-total-tax' },
+            `Salary up to the maximum insurable earnings (${formatCurrency(ei.mie)}); maximum ${formatCurrency(ei.max)}.`
+            + (det.ei.quebecRate ? ' Quebec has a lower EI rate because QPIP pays parental benefits instead.' : '')
+        ));
+        if (isQpp) {
+            const insurable = Math.min(r.input.employmentIncome, qpip.mie);
+            steps.push(this.step(
+                { label: 'QPIP insurable earnings', value: formatCurrency(insurable), cls: 'calc-gross-income' },
+                '×',
+                { label: 'QPIP rate', value: formatRate(det.qpip.rate), cls: 'calc-tax-rate' },
+                { label: 'QPIP premiums', value: formatCurrency(det.qpip.total), cls: 'calc-total-tax' },
+                `Quebec Parental Insurance Plan: salary up to ${formatCurrency(qpip.mie)}; maximum ${formatCurrency(qpip.max)}.`
+            ));
         } else {
-            // No income case
-            this.elements.barTakeHome.style.width = '100%';
-            this.elements.barFederal.style.width = '0%';
-            this.elements.barState.style.width = '0%';
-            this.elements.barCounty.style.width = '0%';
-            this.elements.barTakeHome.textContent = '';
-            this.elements.barFederal.textContent = '';
-            this.elements.barState.textContent = '';
-            this.elements.barCounty.textContent = '';
-
-            // Reset percentage display
-            if (this.elements.percentageTakeHome) {
-                this.elements.percentageTakeHome.textContent = this.formatPercentage(100);
-            }
-            if (this.elements.percentageFederal) {
-                this.elements.percentageFederal.textContent = this.formatPercentage(0);
-            }
-            if (this.elements.percentageState) {
-                this.elements.percentageState.textContent = this.formatPercentage(0);
-            }
-            if (this.elements.percentageCounty) {
-                this.elements.percentageCounty.textContent = this.formatPercentage(0);
-            }
+            const note = document.createElement('p');
+            note.className = 'note-text';
+            note.textContent = 'QPIP (Quebec Parental Insurance Plan) applies to Quebec residents only: $0 here.';
+            steps.push(note);
         }
+
+        const host = this.el('payroll-steps');
+        if (host) host.replaceChildren(...steps);
+
+        this.setText('payroll-total', formatCurrency(p.total));
+        this.setText('payroll-marginal-rate', formatPercent(p.marginalRate));
     }
 
-    /**
-     * Update tax summary sections
-     * @param {Object} calculation - Tax calculation results
-     */
-    updateTaxSummary(calculation) {
-        const { federal, state, county, totals } = calculation;
+    // ------------------------------------------------------------------
+    // Shared builders
+    // ------------------------------------------------------------------
 
-        // Federal summary
-        if (this.elements.federalAgiSummary) {
-            this.elements.federalAgiSummary.textContent = this.formatCurrency(federal.agi);
+    /** One calc-step row: [a] op [b] = [c], with an optional note below. */
+    step(a, op, b, c, note = '') {
+        const wrap = document.createElement('div');
+        wrap.className = 'calc-step';
+        const row = document.createElement('div');
+        row.className = 'calc-step-mobile';
+        row.append(this.box(a), this.operator(op), this.box(b), this.operator('='), this.box(c));
+        wrap.appendChild(row);
+        if (note) {
+            const p = document.createElement('p');
+            p.className = 'calc-step-note';
+            p.textContent = note;
+            wrap.appendChild(p);
         }
-        if (this.elements.federalTaxableSummary) {
-            this.elements.federalTaxableSummary.textContent = this.formatCurrency(federal.taxableIncome);
-        }
-        if (this.elements.federalTaxSummary) {
-            this.elements.federalTaxSummary.textContent = this.formatCurrency(federal.totalTax);
-        }
-        if (this.elements.federalRateSummary) {
-            this.elements.federalRateSummary.textContent = this.formatPercentage(federal.effectiveRate);
-        }
-
-        // State summary
-        if (this.elements.stateAgiSummary) {
-            this.elements.stateAgiSummary.textContent = this.formatCurrency(state.agi);
-        }
-        if (this.elements.stateTaxableSummary) {
-            this.elements.stateTaxableSummary.textContent = this.formatCurrency(state.taxableIncome);
-        }
-        if (this.elements.stateTaxSummary) {
-            this.elements.stateTaxSummary.textContent = this.formatCurrency(state.totalTax);
-        }
-        if (this.elements.countyTaxSummary) {
-            this.elements.countyTaxSummary.textContent = this.formatCurrency(county.totalTax);
-        }
-        if (this.elements.stateRateSummary) {
-            this.elements.stateRateSummary.textContent = this.formatPercentage(state.effectiveRate + county.effectiveRate);
-        }
-
-        // Total summary
-        if (this.elements.totalFederalDisplay) {
-            this.elements.totalFederalDisplay.textContent = this.formatCurrency(federal.totalTax);
-        }
-        if (this.elements.totalStateDisplay) {
-            this.elements.totalStateDisplay.textContent = this.formatCurrency(state.totalTax);
-        }
-        if (this.elements.totalCountyDisplay) {
-            this.elements.totalCountyDisplay.textContent = this.formatCurrency(county.totalTax);
-        }
-        if (this.elements.totalAllTaxesDisplay) {
-            this.elements.totalAllTaxesDisplay.textContent = this.formatCurrency(totals.totalTax);
-        }
-        if (this.elements.totalTakeHomeDisplay) {
-            this.elements.totalTakeHomeDisplay.textContent = this.formatCurrency(totals.postTaxIncome);
-        }
-        if (this.elements.totalEffectiveRateDisplay) {
-            this.elements.totalEffectiveRateDisplay.textContent = this.formatPercentage(totals.effectiveRate);
-        }
+        return wrap;
     }
 
-    /**
-     * Update visual calculation displays for custom scenario
-     * @param {Object} calculation - Tax calculation results
-     * @param {Object} inputs - Input values
-     */
-    updateVisualCalculations(calculation, inputs) {
-        const { federal } = calculation;
-        
-        // Step 1: Gross Income - Adjustments = AGI
-        if (this.elements.visualGrossIncome) {
-            this.elements.visualGrossIncome.textContent = this.formatCurrency(inputs.federalIncome || 0);
-        }
-        if (this.elements.visualAdjustments) {
-            this.elements.visualAdjustments.textContent = this.formatCurrency(inputs.federalAdjustments || 0);
-        }
-        if (this.elements.visualAgi) {
-            this.elements.visualAgi.textContent = this.formatCurrency(federal.agi);
-        }
-        if (this.elements.visualAgi2) {
-            this.elements.visualAgi2.textContent = this.formatCurrency(federal.agi);
-        }
-
-        // Step 2: AGI - Deductions = Taxable Income
-        if (this.elements.visualDeductions) {
-            this.elements.visualDeductions.textContent = this.formatCurrency(inputs.federalDeductions || 0);
-        }
-        if (this.elements.visualTaxableIncome) {
-            this.elements.visualTaxableIncome.textContent = this.formatCurrency(federal.taxableIncome);
-        }
-        if (this.elements.visualTaxableIncome2) {
-            this.elements.visualTaxableIncome2.textContent = this.formatCurrency(federal.taxableIncome);
-        }
-
-        // Step 3: Taxable Income × Tax Rate = Tax Before Credits
-        const taxableEffectiveRate = federal.taxableIncome > 0 ? (federal.preCreditTax / federal.taxableIncome) * 100 : 0;
-        if (this.elements.visualTaxRate) {
-            this.elements.visualTaxRate.textContent = this.formatPercentage(taxableEffectiveRate);
-        }
-        if (this.elements.visualPreCreditTax) {
-            this.elements.visualPreCreditTax.textContent = this.formatCurrency(federal.preCreditTax);
-        }
-        if (this.elements.visualPreCreditTax2) {
-            this.elements.visualPreCreditTax2.textContent = this.formatCurrency(federal.preCreditTax);
-        }
-
-        // Step 4: Tax Before Credits - Credits = Total Tax
-        if (this.elements.visualCredits) {
-            this.elements.visualCredits.textContent = this.formatCurrency(inputs.federalCredits || 0);
-        }
-        if (this.elements.visualTotalTax) {
-            this.elements.visualTotalTax.textContent = this.formatCurrency(federal.totalTax);
-        }
-        if (this.elements.visualTotalTax2) {
-            this.elements.visualTotalTax2.textContent = this.formatCurrency(federal.totalTax);
-        }
-        if (this.elements.visualTotalTax3) {
-            this.elements.visualTotalTax3.textContent = this.formatCurrency(federal.totalTax);
-        }
-
-        // Step 5: Gross Income - Total Tax = Take-Home Pay
-        if (this.elements.visualGrossIncome2) {
-            this.elements.visualGrossIncome2.textContent = this.formatCurrency(inputs.federalIncome || 0);
-        }
-        if (this.elements.visualGrossIncome3) {
-            this.elements.visualGrossIncome3.textContent = this.formatCurrency(inputs.federalIncome || 0);
-        }
-        const takeHomePay = (inputs.federalIncome || 0) - federal.totalTax;
-        if (this.elements.visualTakeHome) {
-            this.elements.visualTakeHome.textContent = this.formatCurrency(takeHomePay);
-        }
-
-        // Step 6: Effective Rate
-        if (this.elements.visualEffectiveRate) {
-            this.elements.visualEffectiveRate.textContent = this.formatPercentage(federal.effectiveRate);
-        }
+    box({ label, value, cls }) {
+        const box = document.createElement('div');
+        box.className = `calc-box ${cls || ''}`.trim();
+        const l = document.createElement('div');
+        l.className = 'calc-box-label';
+        l.textContent = label;
+        const v = document.createElement('div');
+        v.className = 'calc-box-value';
+        v.textContent = value;
+        box.append(l, v);
+        return box;
     }
 
-    /**
-     * Update Maryland visual calculation displays for custom scenario
-     * @param {Object} calculation - Tax calculation results
-     * @param {Object} inputs - Input values
-     */
-    updateMarylandVisualCalculations(calculation, inputs) {
-        const { state, county } = calculation;
-        
-        // Step 1: Gross Income - Adjustments = AGI
-        if (this.elements.marylandVisualGrossIncome) {
-            this.elements.marylandVisualGrossIncome.textContent = this.formatCurrency(inputs.stateIncome || 0);
-        }
-        if (this.elements.marylandVisualAdjustments) {
-            this.elements.marylandVisualAdjustments.textContent = this.formatCurrency(inputs.stateAdjustments || 0);
-        }
-        if (this.elements.marylandVisualAgi) {
-            this.elements.marylandVisualAgi.textContent = this.formatCurrency(state.agi);
-        }
-        if (this.elements.marylandVisualAgi2) {
-            this.elements.marylandVisualAgi2.textContent = this.formatCurrency(state.agi);
-        }
-
-        // Step 2: AGI - Deductions = Taxable Income
-        if (this.elements.marylandVisualDeductions) {
-            this.elements.marylandVisualDeductions.textContent = this.formatCurrency(inputs.stateDeductions || 0);
-        }
-        if (this.elements.marylandVisualTaxableIncome) {
-            this.elements.marylandVisualTaxableIncome.textContent = this.formatCurrency(state.taxableIncome);
-        }
-        if (this.elements.marylandVisualTaxableIncome2) {
-            this.elements.marylandVisualTaxableIncome2.textContent = this.formatCurrency(state.taxableIncome);
-        }
-        if (this.elements.marylandVisualTaxableIncome3) {
-            this.elements.marylandVisualTaxableIncome3.textContent = this.formatCurrency(state.taxableIncome);
-        }
-
-        // Step 3: Taxable Income × State Tax Rate = State Tax Before Credits
-        const stateTaxableEffectiveRate = state.taxableIncome > 0 ? (state.preCreditTax / state.taxableIncome) * 100 : 0;
-        if (this.elements.marylandVisualStateTaxRate) {
-            this.elements.marylandVisualStateTaxRate.textContent = this.formatPercentage(stateTaxableEffectiveRate);
-        }
-        if (this.elements.marylandVisualStatePreCreditTax) {
-            this.elements.marylandVisualStatePreCreditTax.textContent = this.formatCurrency(state.preCreditTax);
-        }
-        if (this.elements.marylandVisualStatePreCreditTax2) {
-            this.elements.marylandVisualStatePreCreditTax2.textContent = this.formatCurrency(state.preCreditTax);
-        }
-
-        // Step 4: Taxable Income × County Tax Rate = County Tax
-        const countyTaxableEffectiveRate = state.taxableIncome > 0 ? (county.totalTax / state.taxableIncome) * 100 : 0;
-        if (this.elements.marylandVisualCountyTaxRate) {
-            this.elements.marylandVisualCountyTaxRate.textContent = this.formatPercentage(countyTaxableEffectiveRate);
-        }
-        if (this.elements.marylandVisualCountyTax) {
-            this.elements.marylandVisualCountyTax.textContent = this.formatCurrency(county.totalTax);
-        }
-        if (this.elements.marylandVisualCountyTax2) {
-            this.elements.marylandVisualCountyTax2.textContent = this.formatCurrency(county.totalTax);
-        }
-
-        // Step 5: State Tax Before Credits - Credits = Total State Tax
-        if (this.elements.marylandVisualCredits) {
-            this.elements.marylandVisualCredits.textContent = this.formatCurrency(inputs.stateCredits || 0);
-        }
-        if (this.elements.marylandVisualTotalStateTax) {
-            this.elements.marylandVisualTotalStateTax.textContent = this.formatCurrency(state.totalTax);
-        }
-        if (this.elements.marylandVisualTotalStateTax2) {
-            this.elements.marylandVisualTotalStateTax2.textContent = this.formatCurrency(state.totalTax);
-        }
-
-        // Step 6: Total State Tax + County Tax = Combined Maryland Tax
-        const combinedMarylandTax = state.totalTax + county.totalTax;
-        if (this.elements.marylandVisualCombinedTax) {
-            this.elements.marylandVisualCombinedTax.textContent = this.formatCurrency(combinedMarylandTax);
-        }
-        if (this.elements.marylandVisualCombinedTax2) {
-            this.elements.marylandVisualCombinedTax2.textContent = this.formatCurrency(combinedMarylandTax);
-        }
-        if (this.elements.marylandVisualCombinedTax3) {
-            this.elements.marylandVisualCombinedTax3.textContent = this.formatCurrency(combinedMarylandTax);
-        }
-
-        // Step 7: Gross Income - Combined Maryland Tax = Take-Home Pay
-        if (this.elements.marylandVisualGrossIncome2) {
-            this.elements.marylandVisualGrossIncome2.textContent = this.formatCurrency(inputs.stateIncome || 0);
-        }
-        if (this.elements.marylandVisualGrossIncome3) {
-            this.elements.marylandVisualGrossIncome3.textContent = this.formatCurrency(inputs.stateIncome || 0);
-        }
-        const takeHomePay = (inputs.stateIncome || 0) - combinedMarylandTax;
-        if (this.elements.marylandVisualTakeHome) {
-            this.elements.marylandVisualTakeHome.textContent = this.formatCurrency(takeHomePay);
-        }
-
-        // Step 8: Effective Rate
-        const combinedEffectiveRate = (inputs.stateIncome || 0) > 0 ? (combinedMarylandTax / (inputs.stateIncome || 0)) * 100 : 0;
-        if (this.elements.marylandVisualEffectiveRate) {
-            this.elements.marylandVisualEffectiveRate.textContent = this.formatPercentage(combinedEffectiveRate);
-        }
+    operator(symbol) {
+        const o = document.createElement('div');
+        o.className = 'calc-operator';
+        o.textContent = symbol;
+        return o;
     }
 
-    /**
-     * Update Maryland visual calculation displays for baseline scenario
-     * @param {Object} marylandBaselineCalculation - Maryland baseline tax calculation results
-     * @param {number} grossIncome - Gross income amount
-     * @param {number} standardDeduction - Standard deduction amount
-     */
-    updateMarylandBaselineVisualCalculations(marylandBaselineCalculation, grossIncome, standardDeduction) {
-        const { state, county, combined } = marylandBaselineCalculation;
-        
-        // Step 1: Gross Income - Adjustments = AGI
-        if (this.elements.marylandBaselineGrossIncome) {
-            this.elements.marylandBaselineGrossIncome.textContent = this.formatCurrency(grossIncome);
-        }
-        if (this.elements.marylandBaselineAdjustments) {
-            this.elements.marylandBaselineAdjustments.textContent = this.formatCurrency(0);
-        }
-        if (this.elements.marylandBaselineAgi) {
-            this.elements.marylandBaselineAgi.textContent = this.formatCurrency(state.agi);
-        }
-        if (this.elements.marylandBaselineAgi2) {
-            this.elements.marylandBaselineAgi2.textContent = this.formatCurrency(state.agi);
-        }
-
-        // Step 2: AGI - Deductions = Taxable Income
-        if (this.elements.marylandBaselineDeductions) {
-            this.elements.marylandBaselineDeductions.textContent = this.formatCurrency(standardDeduction);
-        }
-        if (this.elements.marylandBaselineTaxableIncome) {
-            this.elements.marylandBaselineTaxableIncome.textContent = this.formatCurrency(state.taxableIncome);
-        }
-        if (this.elements.marylandBaselineTaxableIncome2) {
-            this.elements.marylandBaselineTaxableIncome2.textContent = this.formatCurrency(state.taxableIncome);
-        }
-        if (this.elements.marylandBaselineTaxableIncome3) {
-            this.elements.marylandBaselineTaxableIncome3.textContent = this.formatCurrency(state.taxableIncome);
-        }
-
-        // Step 3: Taxable Income × State Tax Rate = State Tax Before Credits
-        const stateTaxableEffectiveRate = state.taxableIncome > 0 ? (state.preCreditTax / state.taxableIncome) * 100 : 0;
-        if (this.elements.marylandBaselineStateTaxRate) {
-            this.elements.marylandBaselineStateTaxRate.textContent = this.formatPercentage(stateTaxableEffectiveRate);
-        }
-        if (this.elements.marylandBaselineStatePreCreditTax) {
-            this.elements.marylandBaselineStatePreCreditTax.textContent = this.formatCurrency(state.preCreditTax);
-        }
-        if (this.elements.marylandBaselineStatePreCreditTax2) {
-            this.elements.marylandBaselineStatePreCreditTax2.textContent = this.formatCurrency(state.preCreditTax);
-        }
-
-        // Step 4: Taxable Income × County Tax Rate = County Tax
-        const countyTaxableEffectiveRate = state.taxableIncome > 0 ? (county.totalTax / state.taxableIncome) * 100 : 0;
-        if (this.elements.marylandBaselineCountyTaxRate) {
-            this.elements.marylandBaselineCountyTaxRate.textContent = this.formatPercentage(countyTaxableEffectiveRate);
-        }
-        if (this.elements.marylandBaselineCountyTax) {
-            this.elements.marylandBaselineCountyTax.textContent = this.formatCurrency(county.totalTax);
-        }
-        if (this.elements.marylandBaselineCountyTax2) {
-            this.elements.marylandBaselineCountyTax2.textContent = this.formatCurrency(county.totalTax);
-        }
-
-        // Step 5: State Tax Before Credits - Credits = Total State Tax
-        if (this.elements.marylandBaselineCredits) {
-            this.elements.marylandBaselineCredits.textContent = this.formatCurrency(0);
-        }
-        if (this.elements.marylandBaselineTotalStateTax) {
-            this.elements.marylandBaselineTotalStateTax.textContent = this.formatCurrency(state.totalTax);
-        }
-        if (this.elements.marylandBaselineTotalStateTax2) {
-            this.elements.marylandBaselineTotalStateTax2.textContent = this.formatCurrency(state.totalTax);
-        }
-
-        // Step 6: Total State Tax + County Tax = Combined Maryland Tax
-        if (this.elements.marylandBaselineCombinedTax) {
-            this.elements.marylandBaselineCombinedTax.textContent = this.formatCurrency(combined.totalTax);
-        }
-        if (this.elements.marylandBaselineCombinedTax2) {
-            this.elements.marylandBaselineCombinedTax2.textContent = this.formatCurrency(combined.totalTax);
-        }
-        if (this.elements.marylandBaselineCombinedTax3) {
-            this.elements.marylandBaselineCombinedTax3.textContent = this.formatCurrency(combined.totalTax);
-        }
-
-        // Step 7: Gross Income - Combined Maryland Tax = Take-Home Pay
-        if (this.elements.marylandBaselineGrossIncome2) {
-            this.elements.marylandBaselineGrossIncome2.textContent = this.formatCurrency(grossIncome);
-        }
-        if (this.elements.marylandBaselineGrossIncome3) {
-            this.elements.marylandBaselineGrossIncome3.textContent = this.formatCurrency(grossIncome);
-        }
-        if (this.elements.marylandBaselineTakeHome) {
-            this.elements.marylandBaselineTakeHome.textContent = this.formatCurrency(combined.postTaxIncome);
-        }
-
-        // Step 8: Effective Rate
-        if (this.elements.marylandBaselineEffectiveRate) {
-            this.elements.marylandBaselineEffectiveRate.textContent = this.formatPercentage(combined.effectiveRate);
-        }
-    }
-
-    /**
-     * Clear Maryland baseline visual calculations when no income
-     */
-    clearMarylandBaselineVisualCalculations() {
-        const elementsToUpdate = [
-            'marylandBaselineGrossIncome', 'marylandBaselineAdjustments', 'marylandBaselineAgi', 'marylandBaselineAgi2',
-            'marylandBaselineDeductions', 'marylandBaselineTaxableIncome', 'marylandBaselineTaxableIncome2', 'marylandBaselineTaxableIncome3',
-            'marylandBaselineStatePreCreditTax', 'marylandBaselineStatePreCreditTax2', 'marylandBaselineCountyTax', 'marylandBaselineCountyTax2',
-            'marylandBaselineCredits', 'marylandBaselineTotalStateTax', 'marylandBaselineTotalStateTax2',
-            'marylandBaselineCombinedTax', 'marylandBaselineCombinedTax2', 'marylandBaselineCombinedTax3',
-            'marylandBaselineGrossIncome2', 'marylandBaselineGrossIncome3', 'marylandBaselineTakeHome'
-        ];
-
-        elementsToUpdate.forEach(elementName => {
-            if (this.elements[elementName]) {
-                this.elements[elementName].textContent = this.formatCurrency(0);
-            }
-        });
-
-        const percentageElements = [
-            'marylandBaselineStateTaxRate', 'marylandBaselineCountyTaxRate', 'marylandBaselineEffectiveRate'
-        ];
-
-        percentageElements.forEach(elementName => {
-            if (this.elements[elementName]) {
-                this.elements[elementName].textContent = this.formatPercentage(0);
-            }
-        });
-    }
-
-    /**
-     * Update visual calculation displays for baseline scenario
-     * @param {Object} baselineCalculation - Baseline tax calculation results
-     * @param {number} grossIncome - Gross income amount
-     * @param {number} standardDeduction - Standard deduction amount
-     */
-    updateBaselineVisualCalculations(baselineCalculation, grossIncome, standardDeduction) {
-        // Step 1: Gross Income - Adjustments = AGI
-        if (this.elements.baselineGrossIncome) {
-            this.elements.baselineGrossIncome.textContent = this.formatCurrency(grossIncome);
-        }
-        if (this.elements.baselineAdjustments) {
-            this.elements.baselineAdjustments.textContent = this.formatCurrency(0);
-        }
-        if (this.elements.baselineAgi) {
-            this.elements.baselineAgi.textContent = this.formatCurrency(baselineCalculation.agi);
-        }
-        if (this.elements.baselineAgi2) {
-            this.elements.baselineAgi2.textContent = this.formatCurrency(baselineCalculation.agi);
-        }
-
-        // Step 2: AGI - Deductions = Taxable Income
-        if (this.elements.baselineDeductions) {
-            this.elements.baselineDeductions.textContent = this.formatCurrency(standardDeduction);
-        }
-        if (this.elements.baselineTaxableIncome) {
-            this.elements.baselineTaxableIncome.textContent = this.formatCurrency(baselineCalculation.taxableIncome);
-        }
-        if (this.elements.baselineTaxableIncome2) {
-            this.elements.baselineTaxableIncome2.textContent = this.formatCurrency(baselineCalculation.taxableIncome);
-        }
-
-        // Step 3: Taxable Income × Tax Rate = Tax Before Credits
-        const taxableEffectiveRate = baselineCalculation.taxableIncome > 0 ? (baselineCalculation.preCreditTax / baselineCalculation.taxableIncome) * 100 : 0;
-        if (this.elements.baselineTaxRate) {
-            this.elements.baselineTaxRate.textContent = this.formatPercentage(taxableEffectiveRate);
-        }
-        if (this.elements.baselinePreCreditTax) {
-            this.elements.baselinePreCreditTax.textContent = this.formatCurrency(baselineCalculation.preCreditTax);
-        }
-        if (this.elements.baselinePreCreditTax2) {
-            this.elements.baselinePreCreditTax2.textContent = this.formatCurrency(baselineCalculation.preCreditTax);
-        }
-
-        // Step 4: Tax Before Credits - Credits = Total Tax
-        if (this.elements.baselineCredits) {
-            this.elements.baselineCredits.textContent = this.formatCurrency(0);
-        }
-        if (this.elements.baselineTotalTax) {
-            this.elements.baselineTotalTax.textContent = this.formatCurrency(baselineCalculation.totalTax);
-        }
-        if (this.elements.baselineTotalTax2) {
-            this.elements.baselineTotalTax2.textContent = this.formatCurrency(baselineCalculation.totalTax);
-        }
-        if (this.elements.baselineTotalTax3) {
-            this.elements.baselineTotalTax3.textContent = this.formatCurrency(baselineCalculation.totalTax);
-        }
-
-        // Step 5: Gross Income - Total Tax = Take-Home Pay
-        if (this.elements.baselineGrossIncome2) {
-            this.elements.baselineGrossIncome2.textContent = this.formatCurrency(grossIncome);
-        }
-        if (this.elements.baselineGrossIncome3) {
-            this.elements.baselineGrossIncome3.textContent = this.formatCurrency(grossIncome);
-        }
-        if (this.elements.baselineTakeHome) {
-            this.elements.baselineTakeHome.textContent = this.formatCurrency(baselineCalculation.postTaxIncome);
-        }
-
-        // Step 6: Effective Rate
-        if (this.elements.baselineEffectiveRate) {
-            this.elements.baselineEffectiveRate.textContent = this.formatPercentage(baselineCalculation.grossEffectiveRate);
-        }
-    }
-
-    /**
-     * Clear baseline visual calculations when no income
-     */
-    clearBaselineVisualCalculations() {
-        const elementsToUpdate = [
-            'baselineGrossIncome', 'baselineAdjustments', 'baselineAgi', 'baselineAgi2',
-            'baselineDeductions', 'baselineTaxableIncome', 'baselineTaxableIncome2',
-            'baselineTaxRate', 'baselinePreCreditTax', 'baselinePreCreditTax2',
-            'baselineCredits', 'baselineTotalTax', 'baselineGrossIncome2',
-            'baselineTotalTax2', 'baselineTakeHome', 'baselineTotalTax3',
-            'baselineGrossIncome3'
-        ];
-
-        elementsToUpdate.forEach(elementName => {
-            if (this.elements[elementName]) {
-                this.elements[elementName].textContent = this.formatCurrency(0);
-            }
-        });
-
-        if (this.elements.baselineTaxRate) {
-            this.elements.baselineTaxRate.textContent = this.formatPercentage(0);
-        }
-        if (this.elements.baselineEffectiveRate) {
-            this.elements.baselineEffectiveRate.textContent = this.formatPercentage(0);
-        }
-    }
-
-    /**
-     * Update all displays with current data
-     * @param {Object} calculation - Complete tax calculation results
-     * @param {Object} inputs - Input values
-     * @param {Object} baselineCalculation - Baseline calculation results
-     * @param {number} standardDeduction - Standard deduction amount
-     */
-    updateAll(calculation, inputs = {}, baselineCalculation = null, standardDeduction = 0) {
-        this.updateAgiDisplays(calculation);
-        this.updateVisualizationBar(calculation);
-        this.updateTaxSummary(calculation);
-        
-        // Update visual calculations
-        this.updateVisualCalculations(calculation, inputs);
-        this.updateMarylandVisualCalculations(calculation, inputs);
-        
-        // Update baseline if provided and income > 0
-        if (baselineCalculation && (inputs.federalIncome || 0) > 0) {
-            const grossIncome = inputs.federalIncome || 0;
-            this.updateBaselineVisualCalculations(baselineCalculation, grossIncome, standardDeduction);
-        } else {
-            // Clear baseline when no income
-            this.clearBaselineVisualCalculations();
-        }
-
-        // Update Maryland baseline if provided and state income > 0
-        const stateGrossIncome = inputs.stateIncome || 0;
-        if (stateGrossIncome > 0) {
-            // Calculate Maryland baseline
-            const marylandBaselineCalculation = window.taxCalculatorApp?.taxCalculator?.calculateMarylandBaseline(stateGrossIncome, inputs.filingStatus || 2);
-            if (marylandBaselineCalculation) {
-                this.updateMarylandBaselineVisualCalculations(marylandBaselineCalculation, stateGrossIncome, standardDeduction);
-            }
-        } else {
-            // Clear Maryland baseline when no income
-            this.clearMarylandBaselineVisualCalculations();
-        }
-    }
-
-    /**
-     * Update bracket breakdown tables with tax calculation details
-     * @param {Object} taxInputs - Tax calculation inputs
-     * @param {Object} taxCalculator - Tax calculator instance
-     */
-    updateBracketBreakdown(taxInputs, taxCalculator) {
-        const breakdown = taxCalculator.getCompleteTaxBreakdown(taxInputs);
-        
-        // Update federal breakdown table
-        this.updateBracketTable(
-            'federal-bracket-table', 
-            breakdown.federal,
-            'federal-total-income',
-            'federal-total-tax'
-        );
-        
-        // Update Maryland breakdown table
-        this.updateBracketTable(
-            'maryland-bracket-table', 
-            breakdown.maryland,
-            'maryland-total-income',
-            'maryland-total-tax'
-        );
-        
-        // Update Anne Arundel breakdown table
-        this.updateBracketTable(
-            'anne-arundel-bracket-table', 
-            breakdown.anneArundel,
-            'anne-arundel-total-income',
-            'anne-arundel-total-tax'
-        );
-    }
-
-    /**
-     * Update a specific bracket breakdown table
-     * @param {string} tableId - ID of the table to update
-     * @param {Object} breakdown - Bracket breakdown data
-     * @param {string} totalIncomeId - ID of total income element
-     * @param {string} totalTaxId - ID of total tax element
-     */
-    updateBracketTable(tableId, breakdown, totalIncomeId, totalTaxId) {
-        const table = document.getElementById(tableId);
-        if (!table) return;
-
-        const tbody = table.querySelector('tbody');
+    /** Replace a tbody's rows. activeIndex highlights one row. */
+    fillTable(tbodyId, rows, activeIndex = -1) {
+        const tbody = this.el(tbodyId);
         if (!tbody) return;
+        tbody.replaceChildren(...rows.map((cells, i) => {
+            const tr = document.createElement('tr');
+            if (i === activeIndex) tr.className = 'active-bracket';
+            cells.forEach(text => {
+                const td = document.createElement('td');
+                td.textContent = text;
+                tr.appendChild(td);
+            });
+            return tr;
+        }));
+    }
 
-        // Clear existing rows
-        tbody.innerHTML = '';
-
-        // Add bracket rows
-        breakdown.brackets.forEach((bracket) => {
-            const row = document.createElement('tr');
-            
-            // Determine if this bracket has any tax (for highlighting)
-            const hasActivity = bracket.taxIncomeInBracket > 0;
-            if (hasActivity) {
-                row.classList.add('active-bracket');
-            }
-
-            row.innerHTML = `
-                <td>${this.formatCurrency(bracket.lowerLimit)}</td>
-                <td>${bracket.upperLimit === 'No Limit' ? 'No Limit' : this.formatCurrency(bracket.upperLimit)}</td>
-                <td>${bracket.rate.toFixed(2)}%</td>
-                <td>${this.formatCurrency(bracket.incomeRemaining)}</td>
-                <td>${this.formatCurrency(bracket.taxIncomeInBracket)}</td>
-                <td>${this.formatCurrency(bracket.taxAmount)}</td>
-            `;
-            
-            tbody.appendChild(row);
+    /** A titled bracket-table card with an optional total row and note. */
+    tableBlock(title, headers, rows, totalRow, note) {
+        const container = document.createElement('div');
+        container.className = 'bracket-table-container';
+        const h = document.createElement('h3');
+        h.textContent = title;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'table-wrapper';
+        const table = document.createElement('table');
+        table.className = 'bracket-table';
+        const thead = document.createElement('thead');
+        const htr = document.createElement('tr');
+        headers.forEach(text => {
+            const th = document.createElement('th');
+            th.textContent = text;
+            htr.appendChild(th);
         });
+        thead.appendChild(htr);
+        const tbody = document.createElement('tbody');
+        rows.forEach(cells => {
+            const tr = document.createElement('tr');
+            cells.forEach(text => {
+                const td = document.createElement('td');
+                td.textContent = text;
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+        table.append(thead, tbody);
+        if (totalRow) {
+            const tfoot = document.createElement('tfoot');
+            const tr = document.createElement('tr');
+            tr.className = 'total-row';
+            totalRow.forEach(text => {
+                const td = document.createElement('td');
+                td.textContent = text;
+                tr.appendChild(td);
+            });
+            tfoot.appendChild(tr);
+            table.appendChild(tfoot);
+        }
+        wrapper.appendChild(table);
+        container.append(h, wrapper);
+        if (note) {
+            const p = document.createElement('p');
+            p.className = 'calc-step-note table-note';
+            p.textContent = note;
+            container.appendChild(p);
+        }
+        return container;
+    }
 
-        // Update totals
-        const totalIncomeElement = document.getElementById(totalIncomeId);
-        const totalTaxElement = document.getElementById(totalTaxId);
-        
-        if (totalIncomeElement) {
-            totalIncomeElement.textContent = this.formatCurrency(breakdown.totalIncome);
+    /** PROVISIONAL / UNVERIFIED flags from a data module; hidden when there are none. */
+    renderFlags(id, jData, name) {
+        const host = this.el(id);
+        if (!host) return;
+        const flags = (jData && Array.isArray(jData.flags)) ? jData.flags : [];
+        if (flags.length === 0) {
+            host.replaceChildren();
+            host.classList.add('hidden');
+            return;
         }
-        
-        if (totalTaxElement) {
-            totalTaxElement.textContent = this.formatCurrency(breakdown.totalTax);
-        }
+        const title = document.createElement('p');
+        title.className = 'flag-title';
+        title.textContent = `Not yet confirmed: ${flags.length} ${name} value${flags.length === 1 ? '' : 's'} `
+            + 'could not be checked against an official 2026 source. The calculation uses them as shown.';
+        const items = flags.map(f => {
+            const d = document.createElement('details');
+            d.className = 'flag-item';
+            const s = document.createElement('summary');
+            const badge = document.createElement('span');
+            badge.className = `flag-badge flag-${String(f.status).toLowerCase()}`;
+            badge.textContent = f.status;
+            const field = document.createElement('code');
+            field.textContent = f.field;
+            s.append(badge, ' ', field);
+            const note = document.createElement('p');
+            note.textContent = f.note || '';
+            d.append(s, note);
+            return d;
+        });
+        host.replaceChildren(title, ...items);
+        host.classList.remove('hidden');
+    }
+
+    /** Source links from a data module (http/https only). */
+    renderSources(id, jData) {
+        const host = this.el(id);
+        if (!host) return;
+        const sources = (jData && Array.isArray(jData.sources)) ? jData.sources : [];
+        host.replaceChildren(...sources.map(src => {
+            const li = document.createElement('li');
+            let safe = null;
+            try {
+                const u = new URL(src.url);
+                if (u.protocol === 'https:' || u.protocol === 'http:') safe = u.href;
+            } catch { /* not a URL */ }
+            if (safe) {
+                const a = document.createElement('a');
+                a.href = safe;
+                a.target = '_blank';
+                a.rel = 'noopener noreferrer';
+                a.textContent = src.title || safe;
+                li.appendChild(a);
+            } else {
+                li.append(src.title || String(src.url || ''));
+            }
+            if (src.retrieved) li.append(` (retrieved ${src.retrieved})`);
+            return li;
+        }));
     }
 }

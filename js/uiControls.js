@@ -1,209 +1,138 @@
 /**
  * UI Controls Module
- * Handles input controls, sliders, and form interactions
+ * Reads the inputs and keeps each slider and number box in sync both ways.
+ * Ids are listed in notes/ui-ids.md.
  */
 
+const DEFAULT_PROVINCE = 'on';
+
 export class UIControls {
+    /**
+     * @param {Function} updateCallback - called after any input changes
+     */
     constructor(updateCallback) {
         this.updateCallback = updateCallback;
         this.elements = this.initializeElements();
         this.setupEventListeners();
     }
 
-    /**
-     * Initialize DOM element references
-     * @returns {Object} Object containing DOM element references
-     */
     initializeElements() {
-        return {
-            // Federal controls
-            federalIncomeSlider: document.getElementById('federal-income-slider'),
-            federalIncomeInput: document.getElementById('federal-income-input'),
-            federalAdjustmentsSlider: document.getElementById('federal-adjustments-slider'),
-            federalAdjustmentsInput: document.getElementById('federal-adjustments-input'),
-            federalDeductionsSlider: document.getElementById('federal-deductions-slider'),
-            federalDeductionsInput: document.getElementById('federal-deductions-input'),
-            federalCreditsSlider: document.getElementById('federal-credits-slider'),
-            federalCreditsInput: document.getElementById('federal-credits-input'),
-            
-            // State controls
-            stateIncomeSlider: document.getElementById('state-income-slider'),
-            stateIncomeInput: document.getElementById('state-income-input'),
-            stateAdjustmentsSlider: document.getElementById('state-adjustments-slider'),
-            stateAdjustmentsInput: document.getElementById('state-adjustments-input'),
-            stateDeductionsSlider: document.getElementById('state-deductions-slider'),
-            stateDeductionsInput: document.getElementById('state-deductions-input'),
-            stateCreditsSlider: document.getElementById('state-credits-slider'),
-            stateCreditsInput: document.getElementById('state-credits-input'),
-            
-            // Common controls
-            filingStatusRadios: document.querySelectorAll('input[name="filingStatus"]')
+        // One literal lookup per id (see notes/ui-ids.md).
+        const elements = {
+            incomeSlider: document.getElementById('income-slider'),
+            incomeInput: document.getElementById('income-input'),
+            provinceSelect: document.getElementById('province-select'),
+            deductionsSlider: document.getElementById('deductions-slider'),
+            deductionsInput: document.getElementById('deductions-input')
         };
+        for (const [key, e] of Object.entries(elements)) {
+            if (!e) console.warn(`UIControls: missing element for ${key}`);
+        }
+        return elements;
     }
 
-    /**
-     * Set up event listeners for all controls
-     */
     setupEventListeners() {
-        // Set up federal controls
-        this.setupInputSync(this.elements.federalIncomeSlider, this.elements.federalIncomeInput);
-        this.setupInputSync(this.elements.federalAdjustmentsSlider, this.elements.federalAdjustmentsInput);
-        this.setupInputSync(this.elements.federalDeductionsSlider, this.elements.federalDeductionsInput);
-        this.setupInputSync(this.elements.federalCreditsSlider, this.elements.federalCreditsInput);
-        
-        // Set up state controls
-        this.setupInputSync(this.elements.stateIncomeSlider, this.elements.stateIncomeInput);
-        this.setupInputSync(this.elements.stateAdjustmentsSlider, this.elements.stateAdjustmentsInput);
-        this.setupInputSync(this.elements.stateDeductionsSlider, this.elements.stateDeductionsInput);
-        this.setupInputSync(this.elements.stateCreditsSlider, this.elements.stateCreditsInput);
-
-        // Set up filing status change listener
-        this.elements.filingStatusRadios.forEach(radio => 
-            radio.addEventListener('change', () => this.updateCallback())
-        );
+        this.setupInputSync(this.elements.incomeSlider, this.elements.incomeInput);
+        this.setupInputSync(this.elements.deductionsSlider, this.elements.deductionsInput);
+        if (this.elements.provinceSelect) {
+            this.elements.provinceSelect.addEventListener('change', () => this.updateCallback());
+        }
     }
 
     /**
-     * Synchronize slider and input field values
-     * @param {HTMLElement} slider - Slider element
-     * @param {HTMLElement} input - Input element
+     * Two-way sync. The slider is clamped to its own max; the number box
+     * keeps whatever (non-negative) value was typed.
      */
     setupInputSync(slider, input) {
-        // Update input when slider changes
+        if (!slider || !input) return;
+
         slider.addEventListener('input', () => {
             input.value = slider.value;
             this.updateCallback();
         });
 
-        // Update slider and trigger calculations when input changes
-        const updateFromInput = () => {
-            let value = parseFloat(input.value) || 0;
-            const max = parseFloat(slider.max);
-            if (value > max) {
-                value = max;
-                input.value = value;
-            }
-            slider.value = value;
+        input.addEventListener('input', () => {
+            const value = this.parseAmount(input.value);
+            slider.value = String(Math.min(value, Number(slider.max)));
             this.updateCallback();
-        };
+        });
 
-        // Listen for both 'input' (real-time while typing) and 'change' (on blur) events
-        input.addEventListener('input', updateFromInput);
-        input.addEventListener('change', updateFromInput);
+        // Normalise what is shown once the user leaves the box (blank -> 0, negative -> 0).
+        input.addEventListener('change', () => {
+            input.value = String(this.parseAmount(input.value));
+        });
+    }
+
+    /** Non-negative finite number from a text value; anything else is 0. */
+    parseAmount(raw) {
+        const n = Number.parseFloat(raw);
+        return Number.isFinite(n) && n > 0 ? n : 0;
     }
 
     /**
-     * Get current values from all controls
-     * @returns {Object} Current form values
+     * Fill the province select from TaxCalculator.listProvinces().
+     * @param {{code: string, name: string}[]} provinces
+     * @param {string} [selected]
+     */
+    setProvinceOptions(provinces, selected = DEFAULT_PROVINCE) {
+        const select = this.elements.provinceSelect;
+        if (!select) return;
+        select.replaceChildren();
+        for (const { code, name } of provinces) {
+            const option = document.createElement('option');
+            option.value = code;
+            option.textContent = name;
+            select.appendChild(option);
+        }
+        if (provinces.some(p => p.code === selected)) {
+            select.value = selected;
+        }
+    }
+
+    /**
+     * @returns {{employmentIncome: number, province: string, otherDeductions: number}}
      */
     getValues() {
         return {
-            // Federal values
-            federalIncome: parseFloat(this.elements.federalIncomeInput.value) || 0,
-            federalAdjustments: parseFloat(this.elements.federalAdjustmentsInput.value) || 0,
-            federalDeductions: parseFloat(this.elements.federalDeductionsInput.value) || 0,
-            federalCredits: parseFloat(this.elements.federalCreditsInput.value) || 0,
-            
-            // State values
-            stateIncome: parseFloat(this.elements.stateIncomeInput.value) || 0,
-            stateAdjustments: parseFloat(this.elements.stateAdjustmentsInput.value) || 0,
-            stateDeductions: parseFloat(this.elements.stateDeductionsInput.value) || 0,
-            stateCredits: parseFloat(this.elements.stateCreditsInput.value) || 0,
-            
-            // Common values
-            filingStatus: parseInt(document.querySelector('input[name="filingStatus"]:checked').value)
+            employmentIncome: this.parseAmount(this.elements.incomeInput?.value),
+            province: this.elements.provinceSelect?.value || DEFAULT_PROVINCE,
+            otherDeductions: this.parseAmount(this.elements.deductionsInput?.value)
         };
     }
 
     /**
-     * Set values for all controls
-     * @param {Object} values - Values to set
+     * Set any of the inputs (used by setState and tests). Does not fire the callback.
      */
-    setValues(values) {
-        // Federal values
-        if (values.federalIncome !== undefined) {
-            this.elements.federalIncomeSlider.value = values.federalIncome;
-            this.elements.federalIncomeInput.value = values.federalIncome;
-        }
-        if (values.federalAdjustments !== undefined) {
-            this.elements.federalAdjustmentsSlider.value = values.federalAdjustments;
-            this.elements.federalAdjustmentsInput.value = values.federalAdjustments;
-        }
-        if (values.federalDeductions !== undefined) {
-            this.elements.federalDeductionsSlider.value = values.federalDeductions;
-            this.elements.federalDeductionsInput.value = values.federalDeductions;
-        }
-        if (values.federalCredits !== undefined) {
-            this.elements.federalCreditsSlider.value = values.federalCredits;
-            this.elements.federalCreditsInput.value = values.federalCredits;
-        }
-        
-        // State values
-        if (values.stateIncome !== undefined) {
-            this.elements.stateIncomeSlider.value = values.stateIncome;
-            this.elements.stateIncomeInput.value = values.stateIncome;
-        }
-        if (values.stateAdjustments !== undefined) {
-            this.elements.stateAdjustmentsSlider.value = values.stateAdjustments;
-            this.elements.stateAdjustmentsInput.value = values.stateAdjustments;
-        }
-        if (values.stateDeductions !== undefined) {
-            this.elements.stateDeductionsSlider.value = values.stateDeductions;
-            this.elements.stateDeductionsInput.value = values.stateDeductions;
-        }
-        if (values.stateCredits !== undefined) {
-            this.elements.stateCreditsSlider.value = values.stateCredits;
-            this.elements.stateCreditsInput.value = values.stateCredits;
-        }
-        
-        // Common values
-        if (values.filingStatus !== undefined) {
-            const radio = document.querySelector(`input[name="filingStatus"][value="${values.filingStatus}"]`);
-            if (radio) radio.checked = true;
+    setValues({ employmentIncome, province, otherDeductions } = {}) {
+        const setPair = (slider, input, value) => {
+            if (value === undefined || !input) return;
+            const v = this.parseAmount(value);
+            input.value = String(v);
+            if (slider) slider.value = String(Math.min(v, Number(slider.max)));
+        };
+        setPair(this.elements.incomeSlider, this.elements.incomeInput, employmentIncome);
+        setPair(this.elements.deductionsSlider, this.elements.deductionsInput, otherDeductions);
+        if (province !== undefined && this.elements.provinceSelect) {
+            this.elements.provinceSelect.value = province;
         }
     }
 
-    /**
-     * Reset all controls to default values
-     */
     reset() {
-        this.setValues({
-            federalIncome: 0,
-            federalAdjustments: 0,
-            federalDeductions: 0,
-            federalCredits: 0,
-            stateIncome: 0,
-            stateAdjustments: 0,
-            stateDeductions: 0,
-            stateCredits: 0,
-            filingStatus: 2 // Default to married
-        });
+        this.setValues({ employmentIncome: 75000, province: DEFAULT_PROVINCE, otherDeductions: 0 });
         this.updateCallback();
     }
 
-    /**
-     * Disable all controls
-     */
-    disable() {
-        Object.values(this.elements).forEach(element => {
-            if (element instanceof NodeList) {
-                element.forEach(node => node.disabled = true);
-            } else {
-                element.disabled = true;
-            }
+    setDisabled(disabled) {
+        Object.values(this.elements).forEach(el => {
+            if (el) el.disabled = disabled;
         });
     }
 
-    /**
-     * Enable all controls
-     */
     enable() {
-        Object.values(this.elements).forEach(element => {
-            if (element instanceof NodeList) {
-                element.forEach(node => node.disabled = false);
-            } else {
-                element.disabled = false;
-            }
-        });
+        this.setDisabled(false);
+    }
+
+    disable() {
+        this.setDisabled(true);
     }
 }

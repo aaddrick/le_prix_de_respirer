@@ -1,6 +1,7 @@
 /**
  * Main Calculator Application Module
- * Coordinates all calculator components and manages application state
+ * The only place the modules meet: reads inputs (UIControls), calculates
+ * (TaxCalculator), renders (DisplayManager). See docs/architecture.md.
  */
 
 import { TaxCalculator } from './taxCalculator.js';
@@ -15,106 +16,62 @@ export class TaxCalculatorApp {
         this.displayManager = new DisplayManager();
         this.themeManager = new ThemeManager();
         this.tabManager = new TabManager();
-        
-        // Initialize UI controls with update callback
         this.uiControls = new UIControls(() => this.updateCalculations());
-        
-        // Listen for tab changes to update bracket breakdown
-        document.addEventListener('tabChanged', (e) => {
-            if (e.detail.activeTab === 'bracket-breakdown') {
-                this.updateBracketBreakdown();
-            }
-        });
-        
-        // Perform initial calculations
+
+        this.uiControls.setProvinceOptions(this.taxCalculator.listProvinces());
         this.updateCalculations();
     }
 
     /**
-     * Update all calculations and displays
+     * Recalculate from the current inputs and re-render every tab.
+     * The engine throws on bad input or bad data; the message is shown
+     * instead of a page of stale or zero numbers.
      */
     updateCalculations() {
-        // Get current input values
         const inputs = this.uiControls.getValues();
-        
-        // Calculate comprehensive tax scenario with federal, state, and county taxes
-        const calculation = this.taxCalculator.calculateAllTaxes(inputs);
-        
-        // Calculate baseline scenario for federal taxes
-        const grossIncome = inputs.federalIncome || 0;
-        const standardDeduction = this.taxCalculator.getStandardDeduction(inputs.filingStatus);
-        const baselineCalculation = grossIncome > 0 ? this.taxCalculator.calculateBaseline(grossIncome, inputs.filingStatus) : null;
-        
-        // Update all displays
-        this.displayManager.updateAll(calculation, inputs, baselineCalculation, standardDeduction);
-        
-        // Update bracket breakdown if that tab is active
-        if (this.tabManager.getActiveTab() === 'bracket-breakdown') {
-            this.updateBracketBreakdown();
+        try {
+            const result = this.taxCalculator.calculate(inputs);
+            const data = {
+                fed: this.taxCalculator.getJurisdictionData('fed'),
+                prov: this.taxCalculator.getJurisdictionData(inputs.province),
+                payroll: this.taxCalculator.getJurisdictionData('payroll')
+            };
+            this.displayManager.updateAll(result, data);
+            this.lastResult = result;
+        } catch (err) {
+            console.error(err);
+            this.displayManager.showError(`Could not calculate: ${err.message}`);
         }
     }
 
-    /**
-     * Update bracket breakdown tables
-     */
-    updateBracketBreakdown() {
-        const inputs = this.uiControls.getValues();
-        this.displayManager.updateBracketBreakdown(inputs, this.taxCalculator);
-    }
-
-    /**
-     * Reset calculator to default values
-     */
     reset() {
         this.uiControls.reset();
     }
 
-    /**
-     * Get current calculator state
-     * @returns {Object} Current state including inputs and calculations
-     */
+    /** Current inputs, result and theme (for debugging from the console). */
     getState() {
-        const inputs = this.uiControls.getValues();
-        const calculation = this.taxCalculator.calculateAllTaxes(inputs);
-        
         return {
-            inputs,
-            calculation,
+            inputs: this.uiControls.getValues(),
+            calculation: this.lastResult,
             theme: this.themeManager.getCurrentTheme()
         };
     }
 
-    /**
-     * Set calculator state
-     * @param {Object} state - State to set
-     */
     setState(state) {
-        if (state.inputs) {
-            this.uiControls.setValues(state.inputs);
-        }
-        if (state.theme) {
-            this.themeManager.setTheme(state.theme);
-        }
+        if (state.inputs) this.uiControls.setValues(state.inputs);
+        if (state.theme) this.themeManager.setTheme(state.theme);
         this.updateCalculations();
     }
 
-    /**
-     * Enable all calculator functionality
-     */
     enable() {
         this.uiControls.enable();
     }
 
-    /**
-     * Disable all calculator functionality
-     */
     disable() {
         this.uiControls.disable();
     }
 }
 
-// Initialize the application when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    // Make calculator available globally for debugging/external access
     window.taxCalculatorApp = new TaxCalculatorApp();
 });
