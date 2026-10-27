@@ -6,21 +6,22 @@
     <title>Canadian Income Tax Calculator, 2026 Tax Year</title>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="styles.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preload" href="fonts/anton-400.woff2" as="font" type="font/woff2" crossorigin>
+    <!-- Apply the saved theme before first paint (same rule and key as js/themeManager.js). -->
+    <script>try{var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark');}catch(e){}</script>
 </head>
 <body>
 
     <div class="container">
 
         <header class="header">
-            <div class="absolute top-0 right-0">
-                <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode">
-                    <svg id="theme-toggle-dark-icon" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+            <div class="head-bar">
+                <p class="kicker">2026 tax year &middot; Canada</p>
+                <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle dark mode">
+                    <svg id="theme-toggle-dark-icon" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                         <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
                     </svg>
-                    <svg id="theme-toggle-light-icon" class="hidden" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                    <svg id="theme-toggle-light-icon" class="hidden" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                         <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"></path>
                     </svg>
                 </button>
@@ -52,8 +53,8 @@
             <div id="setup-content" class="tab-content active" role="tabpanel">
                 <p class="setup-intro">Enter a salary and where you live. Add a second scenario to compare another salary or another province or territory.</p>
                 <div class="scenario-grid">
-                    <div class="tax-section federal-section scenario-card">
-                        <h3 class="section-title federal-title">Scenario A</h3>
+                    <div class="scenario-card">
+                        <h3 class="section-title">Scenario <span class="scenario-letter">A</span></h3>
                         <div class="input-group">
                             <label for="a-province-select" class="control-label">Province or territory of residence (on December 31)</label>
                             <select id="a-province-select" class="select-input"></select>
@@ -74,8 +75,8 @@
                         </div>
                     </div>
 
-                    <div id="scenario-b-card" class="tax-section scenario-card scenario-b">
-                        <h3 class="section-title scenario-b-title">Scenario B</h3>
+                    <div id="scenario-b-card" class="scenario-card">
+                        <h3 class="section-title">Scenario <span class="scenario-letter">B</span></h3>
                         <div class="input-group">
                             <label for="b-province-select" class="control-label">Province or territory of residence (on December 31)</label>
                             <select id="b-province-select" class="select-input"></select>
@@ -124,8 +125,8 @@
                         <p id="out-diff-take-home" class="headline-value">-</p>
                         <p class="headline-sub"><span id="out-diff-take-home-month">-</span> a month</p>
                     </div>
+                    <p id="out-diff-sentence" class="diff-sentence">-</p>
                 </div>
-                <p id="out-diff-sentence" class="diff-sentence">-</p>
                 <p class="note-text estimate-line">Estimate for the 2026 tax year, not financial, tax or legal advice; verify against the official sources linked under each rate.</p>
 
                 <div class="visualization-section">
@@ -166,7 +167,7 @@
 
             <!-- TAB: ALL PROVINCES -->
             <div id="provinces-content" class="tab-content" role="tabpanel">
-                <h2 id="provinces-title" class="section-heading" style="text-align: center;">All provinces and territories</h2>
+                <h2 id="provinces-title" class="section-heading">All provinces and territories</h2>
                 <div class="bracket-table-container">
                     <div class="table-wrapper">
                         <table id="provinces-table" class="bracket-table provinces-table">
@@ -202,7 +203,7 @@
             <!-- TAB: FEDERAL TAX MATH -->
             <div id="federal-math-content" class="tab-content" role="tabpanel">
                 <div class="math-section">
-                    <h2 id="fed-math-title" class="section-heading" style="text-align: center;">Federal tax math</h2>
+                    <h2 id="fed-math-title" class="section-heading">Federal tax math</h2>
                     <div id="fed-flags" class="flag-note hidden"></div>
                     <div id="fed-steps" class="calculation-container"></div>
 
@@ -263,7 +264,7 @@
             <!-- TAB: PROVINCIAL TAX MATH -->
             <div id="provincial-math-content" class="tab-content" role="tabpanel">
                 <div class="math-section">
-                    <h2 id="prov-math-title" class="section-heading" style="text-align: center;">Provincial tax math</h2>
+                    <h2 id="prov-math-title" class="section-heading">Provincial tax math</h2>
                     <div id="prov-flags" class="flag-note hidden"></div>
                     <div id="prov-steps" class="calculation-container provincial-container"></div>
 
@@ -324,7 +325,7 @@
             <!-- TAB: PAYROLL MATH -->
             <div id="payroll-math-content" class="tab-content" role="tabpanel">
                 <div class="math-section">
-                    <h2 id="payroll-math-title" class="section-heading" style="text-align: center;">Payroll math</h2>
+                    <h2 id="payroll-math-title" class="section-heading">Payroll math</h2>
                     <div id="payroll-flags" class="flag-note hidden"></div>
                     <div id="payroll-steps" class="calculation-container payroll-container"></div>
                     <div class="total-summary">
@@ -357,8 +358,7 @@
                     affiliated with or endorsed by the Canada Revenue Agency, Revenu Québec, Retraite Québec or any federal, provincial or
                     territorial government. Check the official sources linked on this page, or ask a qualified professional, before you
                     rely on a number. The amounts you enter stay in your browser and are not sent to any server; the page stores only your
-                    light/dark theme choice, and it loads its font from Google Fonts, so Google receives your IP address as it does for any
-                    web font request.
+                    light/dark theme choice, and it makes no third-party requests.
                 </p>
             </div>
         </footer>
