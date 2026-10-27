@@ -8,7 +8,7 @@
  * its two elements plus one entry here. notes/ui-ids.md lists the full ids.
  */
 
-export const TAB_NAMES = ['calculator', 'federal-math', 'provincial-math', 'payroll-math'];
+export const TAB_NAMES = ['setup', 'output', 'provinces', 'federal-math', 'provincial-math', 'payroll-math'];
 
 export class TabManager {
     constructor() {
@@ -33,6 +33,10 @@ export class TabManager {
                 console.warn(`TabManager: missing #${name}-tab`);
             }
         });
+
+        // "See take-home pay" on Setup opens Output.
+        const toOutput = document.getElementById('setup-to-output');
+        if (toOutput) toOutput.addEventListener('click', () => this.setActiveTab('output'));
 
         document.addEventListener('keydown', (e) => {
             if (!(e.ctrlKey || e.metaKey)) return;

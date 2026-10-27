@@ -33,6 +33,21 @@ export function formatRate(rate) {
     return `${s}%`;
 }
 
+/** Signed whole-dollar difference: "+$1,234", "−$1,234", "$0". */
+export function formatSignedCurrency(value) {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return '-';
+    if (Math.abs(value) < 0.5) return formatCurrency(0);
+    return `${value > 0 ? '+' : '−'}${formatCurrency(Math.abs(value))}`;
+}
+
+/** Signed difference of two rates, in percentage points. */
+export function formatPoints(diff, digits = 2) {
+    if (typeof diff !== 'number' || !Number.isFinite(diff)) return '-';
+    const p = diff * 100;
+    if (Math.abs(p) < 0.005) return `0.${'0'.repeat(digits)} pts`;
+    return `${p > 0 ? '+' : '−'}${Math.abs(p).toFixed(digits)} pts`;
+}
+
 const PENSION_DEDUCTION_LABELS = {
     cppEnhanced: 'Enhanced CPP contributions (first additional)',
     qppEnhanced: 'Enhanced QPP contributions (first additional)',
@@ -43,6 +58,10 @@ const PENSION_DEDUCTION_LABELS = {
 export class DisplayManager {
     constructor() {
         this.elements = this.initializeElements();
+        this.provinceRows = [];
+        this.provinceMarks = {};
+        this.sort = { key: 'takeHome', dir: -1 };
+        this.bindSortHeaders();
     }
 
     /**
@@ -52,54 +71,28 @@ export class DisplayManager {
     initializeElements() {
         const elements = {
             'app-error': document.getElementById('app-error'),
-            'pct-take-home': document.getElementById('pct-take-home'),
-            'pct-federal': document.getElementById('pct-federal'),
-            'pct-provincial': document.getElementById('pct-provincial'),
-            'pct-payroll': document.getElementById('pct-payroll'),
-            'pct-provincial-label': document.getElementById('pct-provincial-label'),
-            'bar-take-home': document.getElementById('bar-take-home'),
-            'bar-federal': document.getElementById('bar-federal'),
-            'bar-provincial': document.getElementById('bar-provincial'),
-            'bar-payroll': document.getElementById('bar-payroll'),
-            'legend-provincial-name': document.getElementById('legend-provincial-name'),
-            'sum-fed-net-income': document.getElementById('sum-fed-net-income'),
-            'sum-fed-after-credits': document.getElementById('sum-fed-after-credits'),
-            'sum-fed-abatement-row': document.getElementById('sum-fed-abatement-row'),
-            'sum-fed-abatement': document.getElementById('sum-fed-abatement'),
-            'sum-fed-tax-label': document.getElementById('sum-fed-tax-label'),
-            'sum-prov-after-credits': document.getElementById('sum-prov-after-credits'),
-            'sum-prov-surtax-row': document.getElementById('sum-prov-surtax-row'),
-            'sum-prov-surtax': document.getElementById('sum-prov-surtax'),
-            'sum-prov-reductions-list': document.getElementById('sum-prov-reductions-list'),
-            'sum-prov-tax-label': document.getElementById('sum-prov-tax-label'),
-            'sum-fed-taxable': document.getElementById('sum-fed-taxable'),
-            'sum-fed-tax': document.getElementById('sum-fed-tax'),
-            'sum-fed-marginal': document.getElementById('sum-fed-marginal'),
-            'sum-prov-title': document.getElementById('sum-prov-title'),
-            'sum-prov-taxable': document.getElementById('sum-prov-taxable'),
-            'sum-prov-health-row': document.getElementById('sum-prov-health-row'),
-            'sum-prov-health-label': document.getElementById('sum-prov-health-label'),
-            'sum-prov-health': document.getElementById('sum-prov-health'),
-            'sum-prov-tax': document.getElementById('sum-prov-tax'),
-            'sum-prov-marginal': document.getElementById('sum-prov-marginal'),
-            'sum-pension-label': document.getElementById('sum-pension-label'),
-            'sum-pension': document.getElementById('sum-pension'),
-            'sum-pension2-label': document.getElementById('sum-pension2-label'),
-            'sum-pension2': document.getElementById('sum-pension2'),
-            'sum-ei': document.getElementById('sum-ei'),
-            'sum-qpip-row': document.getElementById('sum-qpip-row'),
-            'sum-qpip': document.getElementById('sum-qpip'),
-            'sum-payroll-total': document.getElementById('sum-payroll-total'),
-            'total-federal': document.getElementById('total-federal'),
-            'total-provincial-label': document.getElementById('total-provincial-label'),
-            'total-provincial': document.getElementById('total-provincial'),
-            'total-payroll': document.getElementById('total-payroll'),
-            'total-deductions': document.getElementById('total-deductions'),
-            'total-take-home': document.getElementById('total-take-home'),
-            'total-effective-rate': document.getElementById('total-effective-rate'),
-            'total-effective-income-tax-rate': document.getElementById('total-effective-income-tax-rate'),
-            'total-marginal-rate': document.getElementById('total-marginal-rate'),
-            'total-marginal-rate-payroll': document.getElementById('total-marginal-rate-payroll'),
+            'math-switch': document.getElementById('math-switch'),
+            'out-a-label': document.getElementById('out-a-label'),
+            'out-b-label': document.getElementById('out-b-label'),
+            'out-a-take-home': document.getElementById('out-a-take-home'),
+            'out-b-take-home': document.getElementById('out-b-take-home'),
+            'out-a-take-home-month': document.getElementById('out-a-take-home-month'),
+            'out-b-take-home-month': document.getElementById('out-b-take-home-month'),
+            'out-b-headline': document.getElementById('out-b-headline'),
+            'out-diff-headline': document.getElementById('out-diff-headline'),
+            'out-diff-take-home': document.getElementById('out-diff-take-home'),
+            'out-diff-take-home-month': document.getElementById('out-diff-take-home-month'),
+            'out-diff-sentence': document.getElementById('out-diff-sentence'),
+            'out-bars': document.getElementById('out-bars'),
+            'out-legend-provincial': document.getElementById('out-legend-provincial'),
+            'out-th-a': document.getElementById('out-th-a'),
+            'out-th-b': document.getElementById('out-th-b'),
+            'out-th-diff': document.getElementById('out-th-diff'),
+            'out-table-body': document.getElementById('out-table-body'),
+            'provinces-title': document.getElementById('provinces-title'),
+            'provinces-table': document.getElementById('provinces-table'),
+            'provinces-table-body': document.getElementById('provinces-table-body'),
+            'sales-tax-body': document.getElementById('sales-tax-body'),
             'payroll-math-title': document.getElementById('payroll-math-title'),
             'payroll-flags': document.getElementById('payroll-flags'),
             'payroll-steps': document.getElementById('payroll-steps'),
@@ -178,123 +171,337 @@ export class DisplayManager {
     // ------------------------------------------------------------------
 
     /**
-     * @param {object} result - TaxCalculator.calculate() result
-     * @param {{fed: object, prov: object, payroll: object}} data - getJurisdictionData() modules
+     * @param {object} s
+     * @param {object} s.ra - calculate() for Scenario A
+     * @param {object|null} s.rb - calculate() for Scenario B, null when not comparing
+     * @param {object} s.dataA - {prov} data module for A's province
+     * @param {object|null} s.dataB - {prov} data module for B's province
+     * @param {object[]} s.rows - compareAll() at A's salary and deductions
+     * @param {object} s.salesData - {code: data module} for the sales-tax table
+     * @param {'a'|'b'} s.mathScenario - which scenario the math tabs explain
+     * @param {{fed: object, prov: object, payroll: object}} s.mathData - data modules for that scenario
      */
-    updateAll(result, data) {
+    updateAll({ ra, rb, dataA, dataB, rows, salesData, mathScenario, mathData }) {
         this.clearError();
-        this.updateCalculator(result, data);
-        this.updateJurisdictionMath('fed', result.federal, result, data.fed, data);
-        this.updateJurisdictionMath('prov', result.provincial, result, data.prov, data);
-        this.updatePayrollMath(result, data.payroll);
+        this.updateOutput(ra, rb, dataA, dataB);
+        this.updateProvinces(rows, ra, rb, salesData);
+        const mr = mathScenario === 'b' && rb ? rb : ra;
+        const tag = rb ? `Scenario ${mathScenario === 'b' && rb ? 'B' : 'A'}: ` : '';
+        this.updateJurisdictionMath('fed', mr.federal, mr, mathData.fed, mathData, tag);
+        this.updateJurisdictionMath('prov', mr.provincial, mr, mathData.prov, mathData, tag);
+        this.updatePayrollMath(mr, mathData.payroll, tag);
+    }
+
+    /** Show the A/B switch only on the math tabs, and only when comparing. */
+    setMathSwitchVisible(visible) {
+        this.setHidden('math-switch', !visible);
     }
 
     // ------------------------------------------------------------------
-    // Calculator tab
+    // Output tab
     // ------------------------------------------------------------------
 
-    updateCalculator(r, data = {}) {
-        const income = r.input.employmentIncome;
-        const provName = r.input.provinceName;
-        const share = v => (income > 0 ? v / income : 0);
+    scenarioLabel(letter, r) {
+        return `${letter}: ${r.input.provinceName}, ${formatCurrency(r.input.employmentIncome)}`;
+    }
 
-        const shares = {
-            'take-home': income > 0 ? share(r.totals.takeHome) : 1,
-            federal: share(r.federal.net),
-            provincial: share(r.provincial.net),
-            payroll: share(r.payroll.total)
-        };
-        Object.entries(shares).forEach(([key, s]) => {
-            this.setText(`pct-${key}`, formatPercent(s, 1));
-            const bar = this.el(`bar-${key}`);
-            if (bar) {
-                const width = Math.max(0, s) * 100;
-                bar.style.width = `${width}%`;
-                bar.textContent = width >= 9 ? `${width.toFixed(0)}%` : '';
+    updateOutput(ra, rb, dataA, dataB) {
+        const comparing = Boolean(rb);
+
+        // Headline
+        this.setText('out-a-label', this.scenarioLabel('A', ra));
+        this.setText('out-a-take-home', formatCurrency(ra.totals.takeHome));
+        this.setText('out-a-take-home-month', formatCurrency(ra.totals.takeHome / 12));
+        this.setHidden('out-b-headline', !comparing);
+        this.setHidden('out-diff-headline', !comparing);
+        if (comparing) {
+            const diff = rb.totals.takeHome - ra.totals.takeHome;
+            this.setText('out-b-label', this.scenarioLabel('B', rb));
+            this.setText('out-b-take-home', formatCurrency(rb.totals.takeHome));
+            this.setText('out-b-take-home-month', formatCurrency(rb.totals.takeHome / 12));
+            this.setText('out-diff-take-home', formatSignedCurrency(diff));
+            this.setText('out-diff-take-home-month', formatSignedCurrency(diff / 12));
+            const e = this.el('out-diff-take-home');
+            if (e) {
+                e.classList.toggle('diff-positive', diff >= 0.5);
+                e.classList.toggle('diff-negative', diff <= -0.5);
             }
+            let sentence;
+            if (Math.abs(diff) < 0.5) {
+                sentence = 'Both scenarios leave you the same take-home pay.';
+            } else {
+                const better = diff > 0 ? 'B' : 'A';
+                sentence = `Scenario ${better} leaves you ${formatCurrency(Math.abs(diff))} more a year `
+                    + `(${formatCurrency(Math.abs(diff) / 12)} a month) after income tax and payroll contributions.`;
+            }
+            this.setText('out-diff-sentence', sentence);
+        } else {
+            this.setText('out-diff-sentence',
+                `You keep ${formatPercent(ra.input.employmentIncome > 0 ? ra.totals.takeHome / ra.input.employmentIncome : 1, 1)} `
+                + 'of your salary. Turn on Scenario B in Setup to compare another salary or province.');
+        }
+
+        // Bars
+        const bars = this.el('out-bars');
+        if (bars) {
+            bars.replaceChildren(this.barRow('A', ra), ...(comparing ? [this.barRow('B', rb)] : []));
+        }
+        const provNames = comparing && rb.input.province !== ra.input.province
+            ? `${ra.input.provinceName} / ${rb.input.provinceName} tax`
+            : `${ra.input.provinceName} tax`;
+        this.setText('out-legend-provincial', provNames);
+
+        // Table
+        this.setText('out-th-a', this.scenarioLabel('A', ra));
+        this.setText('out-th-b', comparing ? this.scenarioLabel('B', rb) : 'B');
+        this.setHidden('out-th-b', !comparing);
+        this.setHidden('out-th-diff', !comparing);
+        this.renderCompareTable(ra, rb, dataA, dataB);
+    }
+
+    barRow(letter, r) {
+        const income = r.input.employmentIncome;
+        const share = v => (income > 0 ? Math.max(0, v / income) : 0);
+        const parts = [
+            ['bar-take-home', 'Take-home', income > 0 ? share(r.totals.takeHome) : 1],
+            ['bar-federal', 'Federal tax', share(r.federal.net)],
+            ['bar-provincial', `${r.input.provinceName} tax`, share(r.provincial.net)],
+            ['bar-payroll', 'Payroll contributions', share(r.payroll.total)]
+        ];
+        const row = document.createElement('div');
+        row.className = 'bar-row';
+        const label = document.createElement('div');
+        label.className = 'bar-row-label';
+        label.textContent = this.scenarioLabel(letter, r);
+        const container = document.createElement('div');
+        container.className = 'tax-bar-container';
+        parts.forEach(([cls, title, s]) => {
+            const seg = document.createElement('div');
+            seg.className = `tax-bar ${cls}`;
+            seg.style.width = `${s * 100}%`;
+            seg.title = `${title}: ${formatPercent(s, 1)}`;
+            seg.textContent = s >= 0.09 ? `${(s * 100).toFixed(0)}%` : '';
+            container.appendChild(seg);
         });
-        this.setText('pct-provincial-label', `${provName} tax`);
-        this.setText('legend-provincial-name', `${provName} tax`);
-        const provBar = this.el('bar-provincial');
-        if (provBar) provBar.title = `${provName} tax`;
+        row.append(label, container);
+        return row;
+    }
 
-        // Federal card
-        this.setText('sum-fed-net-income', formatCurrency(r.federal.netIncome));
-        this.setText('sum-fed-taxable', formatCurrency(r.federal.taxableIncome));
-        this.setText('sum-fed-after-credits', formatCurrency(r.federal.afterCredits));
-        const hasAbatement = r.input.province === 'qc';
-        this.setHidden('sum-fed-abatement-row', !hasAbatement);
-        this.setText('sum-fed-abatement', `−${formatCurrency(r.federal.abatement)}`);
-        this.setText('sum-fed-tax-label', hasAbatement ? 'Federal tax (after abatement):' : 'Federal tax:');
-        this.setText('sum-fed-tax', formatCurrency(r.federal.net));
-        this.setText('sum-fed-marginal', formatPercent(r.federal.marginalRate));
+    /**
+     * Side-by-side table. Each row: [label, valueA, valueB, kind]. kind sets
+     * formatting: 'money' (difference signed), 'rate' (difference in points),
+     * 'heading' (section row). Optional rows (surtax, reductions, abatement,
+     * health premium, QPIP) appear only when non-zero in A or B.
+     */
+    renderCompareTable(ra, rb, dataA, dataB) {
+        const comparing = Boolean(rb);
+        const rows = [];
+        const both = f => [f(ra), comparing ? f(rb) : null];
+        const nonZero = ([a, b]) => Math.abs(a || 0) >= 0.5 || Math.abs(b || 0) >= 0.5;
+        const money = (label, f, opts = {}) => {
+            const v = both(f);
+            if (opts.optional && !nonZero(v)) return;
+            rows.push({ label, a: v[0], b: v[1], kind: 'money', ...opts });
+        };
+        const rate = (label, f) => {
+            const v = both(f);
+            rows.push({ label, a: v[0], b: v[1], kind: 'rate' });
+        };
+        const heading = label => rows.push({ label, kind: 'heading' });
 
-        // Provincial card
-        this.setText('sum-prov-title', `${provName} tax`);
-        this.setText('sum-prov-taxable', formatCurrency(r.provincial.taxableIncome));
-        // Components of provincial tax, in the engine's order, so the lines add up to the total.
-        const prov = r.provincial;
-        const hasSurtax = Boolean(data.prov && data.prov.surtax);
-        this.setText('sum-prov-after-credits', formatCurrency(prov.afterCredits));
-        this.setHidden('sum-prov-surtax-row', !hasSurtax);
-        this.setText('sum-prov-surtax', `+${formatCurrency(prov.surtax)}`);
-        const redHost = this.el('sum-prov-reductions-list');
-        if (redHost) {
-            redHost.replaceChildren(...prov.reductions.map(x => {
-                const row = document.createElement('div');
-                row.className = 'summary-row';
-                const l = document.createElement('span');
-                l.className = 'summary-label';
-                l.textContent = `${x.name}:`;
-                const v = document.createElement('span');
-                v.className = 'summary-value';
-                v.textContent = `−${formatCurrency(x.amount)}`;
-                row.append(l, v);
-                return row;
-            }));
+        heading('Income');
+        money('Employment income', r => r.input.employmentIncome);
+        money('Other deductions (e.g. RRSP)', r => r.input.otherDeductions, { optional: true });
+
+        heading('Federal tax');
+        money('Federal tax after credits', r => r.federal.afterCredits);
+        money('Quebec abatement', r => -r.federal.abatement, { optional: true });
+        money('Federal tax', r => r.federal.net, { strong: true, cls: 'row-federal' });
+
+        heading('Provincial or territorial tax');
+        money('Provincial tax after credits', r => r.provincial.afterCredits);
+        money('Surtax', r => r.provincial.surtax, { optional: true });
+        const reductionNames = [...new Set([ra, rb].filter(Boolean).flatMap(r => r.provincial.reductions.map(x => x.name)))];
+        reductionNames.forEach(name => {
+            money(name, r => {
+                const x = r.provincial.reductions.find(y => y.name === name);
+                return x ? -x.amount : 0;
+            }, { optional: true });
+        });
+        const premiumNames = [...new Set([ra, rb].filter(Boolean).map(r => r.provincial.healthPremiumName).filter(Boolean))];
+        if (premiumNames.length) {
+            money(premiumNames.join(' / '), r => r.provincial.healthPremium, { optional: true });
         }
-        const parts = [];
-        if (hasSurtax) parts.push('surtax');
-        if (prov.reductions.length) parts.push('reductions');
-        if (prov.healthPremiumName) parts.push(prov.healthPremiumName);
-        this.setText('sum-prov-tax-label', parts.length
-            ? `${provName} tax (incl. ${parts.join(', ')}):`
-            : `${provName} tax:`);
-        const hasHealth = Boolean(r.provincial.healthPremiumName);
-        this.setHidden('sum-prov-health-row', !hasHealth);
-        if (hasHealth) {
-            this.setText('sum-prov-health-label', `${r.provincial.healthPremiumName}:`);
-            this.setText('sum-prov-health', `+${formatCurrency(r.provincial.healthPremium)}`);
+        money('Provincial tax (incl. the lines above)', r => r.provincial.net, { strong: true, cls: 'row-provincial' });
+
+        heading('Payroll contributions');
+        const planLabel = comparing && ra.payroll.plan !== rb.payroll.plan ? 'CPP / QPP' : ra.payroll.plan;
+        money(`${planLabel} contributions`, r => (r.payroll.plan === 'QPP' ? r.payroll.qpp : r.payroll.cpp));
+        money(`${planLabel === 'CPP / QPP' ? 'CPP2 / QPP2' : `${planLabel}2`} contributions`,
+            r => (r.payroll.plan === 'QPP' ? r.payroll.qpp2 : r.payroll.cpp2), { optional: true });
+        money('EI premiums', r => r.payroll.ei);
+        money('QPIP premiums (Quebec)', r => r.payroll.qpip, { optional: true });
+        money('Total payroll', r => r.payroll.total, { strong: true, cls: 'row-payroll' });
+
+        heading('Bottom line');
+        money('Income tax + payroll', r => r.totals.totalDeductions, { strong: true });
+        money('Take-home pay (year)', r => r.totals.takeHome, { strong: true, cls: 'row-take-home', better: 'higher' });
+        money('Take-home pay (month)', r => r.totals.takeHome / 12, { better: 'higher' });
+        rate('Effective rate (tax + payroll)', r => r.totals.effectiveRate);
+        rate('Effective rate (income tax only)', r => r.totals.effectiveIncomeTaxRate);
+        rate('Marginal rate (income tax)', r => r.totals.marginalRateIncomeTax);
+        rate('Marginal rate (tax + payroll)', r => r.totals.marginalRateIncludingPayroll);
+
+        const tbody = this.el('out-table-body');
+        if (!tbody) return;
+        tbody.replaceChildren(...rows.map(row => {
+            const tr = document.createElement('tr');
+            if (row.kind === 'heading') {
+                tr.className = 'section-row';
+                const th = document.createElement('th');
+                th.scope = 'rowgroup';
+                th.colSpan = comparing ? 4 : 2;
+                th.textContent = row.label;
+                tr.appendChild(th);
+                return tr;
+            }
+            if (row.strong) tr.classList.add('strong-row');
+            if (row.cls) tr.classList.add(row.cls);
+            const fmt = row.kind === 'rate' ? v => formatPercent(v) : v => (v <= -0.5 ? formatSignedCurrency(v) : formatCurrency(v));
+            const cells = [row.label, fmt(row.a)];
+            if (comparing) {
+                cells.push(fmt(row.b));
+                const d = row.b - row.a;
+                cells.push(row.kind === 'rate' ? formatPoints(d) : formatSignedCurrency(d));
+            }
+            cells.forEach((text, i) => {
+                const td = document.createElement(i === 0 ? 'th' : 'td');
+                if (i === 0) td.scope = 'row';
+                td.textContent = text;
+                if (i === 3 && row.better === 'higher') {
+                    const d = row.b - row.a;
+                    td.classList.toggle('diff-positive', d >= 0.5);
+                    td.classList.toggle('diff-negative', d <= -0.5);
+                }
+                tr.appendChild(td);
+            });
+            return tr;
+        }));
+    }
+
+    // ------------------------------------------------------------------
+    // All provinces tab
+    // ------------------------------------------------------------------
+
+    bindSortHeaders() {
+        const table = this.el('provinces-table');
+        if (!table) return;
+        table.addEventListener('click', (e) => {
+            const button = e.target.closest('button[data-sort]');
+            if (!button) return;
+            const key = button.dataset.sort;
+            if (this.sort.key === key) {
+                this.sort.dir = -this.sort.dir;
+            } else {
+                this.sort = { key, dir: key === 'name' ? 1 : -1 };
+            }
+            this.renderProvinceRows();
+        });
+    }
+
+    updateProvinces(rows, ra, rb, salesData) {
+        this.provinceRows = rows;
+        this.provinceMarks = { [ra.input.province]: ['A'] };
+        if (rb) {
+            (this.provinceMarks[rb.input.province] ||= []).push('B');
         }
-        this.setText('sum-prov-tax', formatCurrency(r.provincial.net));
-        this.setText('sum-prov-marginal', formatPercent(r.provincial.marginalRate));
+        const ded = ra.input.otherDeductions > 0 ? ` with ${formatCurrency(ra.input.otherDeductions)} of deductions` : '';
+        this.setText('provinces-title',
+            `All 13 provinces and territories at ${formatCurrency(ra.input.employmentIncome)}${ded} (Scenario A), ${ra.input.year}`);
+        this.renderProvinceRows();
+        this.renderSalesTax(rows, salesData);
+    }
 
-        // Payroll card
-        const p = r.payroll;
-        const isQpp = p.plan === 'QPP';
-        const pension = isQpp ? p.qpp : p.cpp;
-        const pension2 = isQpp ? p.qpp2 : p.cpp2;
-        this.setText('sum-pension-label', `${p.plan} contributions:`);
-        this.setText('sum-pension', formatCurrency(pension));
-        this.setText('sum-pension2-label', `${p.plan}2 contributions:`);
-        this.setText('sum-pension2', formatCurrency(pension2));
-        this.setText('sum-ei', formatCurrency(p.ei));
-        this.setHidden('sum-qpip-row', !isQpp);
-        this.setText('sum-qpip', formatCurrency(p.qpip));
-        this.setText('sum-payroll-total', formatCurrency(p.total));
+    renderProvinceRows() {
+        const tbody = this.el('provinces-table-body');
+        if (!tbody) return;
+        const { key, dir } = this.sort;
+        const sorted = [...this.provinceRows].sort((x, y) => {
+            const a = x[key];
+            const b = y[key];
+            const c = typeof a === 'string' ? a.localeCompare(b) : a - b;
+            return c * dir;
+        });
+        tbody.replaceChildren(...sorted.map(r => {
+            const tr = document.createElement('tr');
+            const marks = this.provinceMarks[r.province];
+            if (marks) tr.className = 'active-bracket';
+            const name = marks ? `${r.name} (${marks.join(', ')})` : r.name;
+            [name, formatCurrency(r.incomeTax), formatCurrency(r.payroll), formatCurrency(r.takeHome),
+                formatPercent(r.effectiveRate), formatPercent(r.marginalRate)].forEach((text, i) => {
+                const td = document.createElement(i === 0 ? 'th' : 'td');
+                if (i === 0) td.scope = 'row';
+                td.textContent = text;
+                tr.appendChild(td);
+            });
+            return tr;
+        }));
+        const table = this.el('provinces-table');
+        if (table) {
+            table.querySelectorAll('thead th').forEach(th => {
+                const b = th.querySelector('button[data-sort]');
+                if (b && b.dataset.sort === key) {
+                    th.setAttribute('aria-sort', dir > 0 ? 'ascending' : 'descending');
+                } else {
+                    th.removeAttribute('aria-sort');
+                }
+            });
+        }
+    }
 
-        // Totals
-        const t = r.totals;
-        this.setText('total-federal', formatCurrency(r.federal.net));
-        this.setText('total-provincial-label', `${provName} tax`);
-        this.setText('total-provincial', formatCurrency(r.provincial.net));
-        this.setText('total-payroll', formatCurrency(t.payroll));
-        this.setText('total-deductions', formatCurrency(t.totalDeductions));
-        this.setText('total-take-home', formatCurrency(t.takeHome));
-        this.setText('total-effective-rate', formatPercent(t.effectiveRate));
-        this.setText('total-effective-income-tax-rate', formatPercent(t.effectiveIncomeTaxRate));
-        this.setText('total-marginal-rate', formatPercent(t.marginalRateIncomeTax));
-        this.setText('total-marginal-rate-payroll', formatPercent(t.marginalRateIncludingPayroll));
+    renderSalesTax(rows, salesData) {
+        const tbody = this.el('sales-tax-body');
+        if (!tbody) return;
+        tbody.replaceChildren(...rows.map(r => {
+            const st = r.salesTax;
+            const tr = document.createElement('tr');
+            const pct = v => (typeof v === 'number' && v > 0 ? formatRate(v) : '-');
+            let cells;
+            if (!st) {
+                cells = [r.name, '-', '-', '-', '-', { text: 'No sales-tax data', title: '' }];
+            } else {
+                const provincial = (st.qst || 0) > 0 ? `QST ${formatRate(st.qst)}` : pct(st.pst);
+                const combined = (st.hst || 0) > 0 ? st.hst : (st.gst || 0) + (st.pst || 0) + (st.qst || 0);
+                const mod = salesData && salesData[r.province];
+                const src = mod && Array.isArray(mod.sources)
+                    ? mod.sources.find(s => Array.isArray(s.fields) && s.fields.some(f => String(f).startsWith('salesTax')))
+                    : null;
+                const basis = (st.hst || 0) > 0 ? 'HST'
+                    : (st.qst || 0) > 0 ? 'GST + QST'
+                        : (st.pst || 0) > 0 ? 'GST + PST' : 'GST only';
+                const asOf = src && src.retrieved ? `, as of ${src.retrieved}` : '';
+                cells = [r.name, (st.hst || 0) > 0 ? 'in HST' : pct(st.gst), provincial, pct(st.hst),
+                    formatRate(combined), { text: `${basis}${asOf}`, title: st.note || '' }];
+            }
+            cells.forEach((text, i) => {
+                const td = document.createElement(i === 0 ? 'th' : 'td');
+                if (i === 0) td.scope = 'row';
+                if (i === 5) {
+                    // Short label + as-of; the full data note is the tooltip.
+                    // UI-3 adds the per-row source link after the label (span.source-slot).
+                    td.className = 'note-cell';
+                    td.textContent = text.text;
+                    if (text.title) td.title = text.title;
+                    const slot = document.createElement('span');
+                    slot.className = 'source-slot';
+                    td.appendChild(slot);
+                } else {
+                    td.textContent = text;
+                }
+                tr.appendChild(td);
+            });
+            return tr;
+        }));
     }
 
     // ------------------------------------------------------------------
@@ -308,14 +515,14 @@ export class DisplayManager {
      * @param {object} jData - the jurisdiction's data module
      * @param {object} data - all data modules ({fed, prov, payroll})
      */
-    updateJurisdictionMath(prefix, j, r, jData, data) {
+    updateJurisdictionMath(prefix, j, r, jData, data, tag = '') {
         const isFed = prefix === 'fed';
         const year = r.input.year;
         const taxLabel = isFed ? 'Federal tax' : `${j.name} tax`;
 
         this.setText(`${prefix}-math-title`, isFed
-            ? `Federal tax math, ${year}`
-            : `${j.name} tax math, ${year}`);
+            ? `${tag}Federal tax math, ${year}`
+            : `${tag}${j.name} tax math, ${year}`);
 
         this.renderFlags(`${prefix}-flags`, jData, j.name);
         this.renderSources(`${prefix}-sources`, jData);
@@ -370,20 +577,23 @@ export class DisplayManager {
         ));
 
         // Optional steps, in the engine's order of operations (notes/engine.md).
+        // A step whose amount rounds to $0 is left out (no "-$0" rows).
+        const shows = v => Math.abs(v) >= 0.5;
         const optional = [];
-        if (jData && jData.surtax) {
+        if (jData && jData.surtax && shows(j.surtax)) {
             optional.push({ op: '+', label: 'Surtax', value: j.surtax, after: j.afterSurtax });
         }
-        if (j.reductions.length > 0) {
-            const label = j.reductions.length === 1 ? j.reductions[0].name : 'Tax reductions';
+        const applied = j.reductions.filter(x => shows(x.amount));
+        if (applied.length > 0) {
+            const label = applied.length === 1 ? applied[0].name : 'Tax reductions';
             optional.push({ op: '−', label, value: j.reductionsTotal, after: j.afterSurtax - j.reductionsTotal });
         }
-        if (isFed && r.input.province === 'qc') {
+        if (isFed && r.input.province === 'qc' && shows(j.abatement)) {
             const abRate = data.fed && data.fed.abatement ? ` (${formatRate(data.fed.abatement.quebec)})` : '';
             optional.push({ op: '−', label: `Quebec abatement${abRate}`, value: j.abatement,
                 after: j.afterSurtax - j.reductionsTotal - j.abatement });
         }
-        if (j.healthPremiumName) {
+        if (j.healthPremiumName && shows(j.healthPremium)) {
             optional.push({ op: '+', label: j.healthPremiumName, value: j.healthPremium, after: j.net });
         }
 
@@ -439,11 +649,12 @@ export class DisplayManager {
             ));
         }
 
-        if (j.reductions.length > 0) {
+        const reductionRows = j.reductions.filter(x => Math.abs(x.potential) >= 0.5 || Math.abs(x.amount) >= 0.5);
+        if (reductionRows.length > 0) {
             blocks.push(this.tableBlock(
                 'Tax reductions',
                 ['Reduction', 'Before cap', 'Applied'],
-                j.reductions.map(x => [x.name, formatCurrency(x.potential), formatCurrency(x.amount)]),
+                reductionRows.map(x => [x.name, formatCurrency(x.potential), formatCurrency(x.amount)]),
                 ['Total applied', '', formatCurrency(j.reductionsTotal)],
                 'Reductions together cannot exceed the tax left after credits and surtax.'
             ));
@@ -482,7 +693,7 @@ export class DisplayManager {
     // Payroll tab
     // ------------------------------------------------------------------
 
-    updatePayrollMath(r, pData) {
+    updatePayrollMath(r, pData, tag = '') {
         const p = r.payroll;
         const det = p.detail;
         const isQpp = p.plan === 'QPP';
@@ -495,7 +706,7 @@ export class DisplayManager {
         const ei = pd[eik] || {};
         const qpip = pd.qpip || {};
 
-        this.setText('payroll-math-title', `Payroll math, ${r.input.year}: ${p.plan} plan`);
+        this.setText('payroll-math-title', `${tag}Payroll math, ${r.input.year}: ${p.plan} plan`);
         this.renderFlags('payroll-flags', pData, 'payroll');
         this.renderSources('payroll-sources', pData);
 
@@ -670,8 +881,8 @@ export class DisplayManager {
         }
         const title = document.createElement('p');
         title.className = 'flag-title';
-        title.textContent = `Not yet confirmed: ${flags.length} ${name} value${flags.length === 1 ? '' : 's'} `
-            + 'could not be checked against an official 2026 source. The calculation uses them as shown.';
+        title.textContent = `Not yet confirmed: ${flags.length} ${name} value${flags.length === 1 ? ' is' : 's are'} `
+            + 'provisional, unverified, or differ between official sources (CONFLICT). The calculation uses the values shown; open each item for details.';
         const items = flags.map(f => {
             const d = document.createElement('details');
             d.className = 'flag-item';

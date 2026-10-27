@@ -26,220 +26,172 @@
                 </button>
             </div>
             <h1 class="main-title">Canadian Income Tax Calculator</h1>
-            <p class="subtitle">2026 tax year: federal and provincial or territorial income tax, CPP/QPP, EI and QPIP, and what you take home in each province and territory.</p>
+            <p class="subtitle">2026 tax year. Enter your salary and where you live, see your take-home pay after income tax, CPP/QPP, EI and QPIP, and compare it with a second salary or province.</p>
         </header>
 
         <!-- TAB NAVIGATION: ids are built from TAB_NAMES in js/tabManager.js -->
         <nav class="tab-navigation" role="tablist">
-            <button id="calculator-tab" class="tab-button active" role="tab" aria-selected="true">Calculator</button>
-            <button id="federal-math-tab" class="tab-button" role="tab" aria-selected="false">Federal Tax Math</button>
-            <button id="provincial-math-tab" class="tab-button" role="tab" aria-selected="false">Provincial Tax Math</button>
-            <button id="payroll-math-tab" class="tab-button" role="tab" aria-selected="false">Payroll Math</button>
+            <button id="setup-tab" class="tab-button active" role="tab" aria-selected="true">1. Setup</button>
+            <button id="output-tab" class="tab-button" role="tab" aria-selected="false">2. Take-home</button>
+            <button id="provinces-tab" class="tab-button" role="tab" aria-selected="false">All provinces</button>
+            <button id="federal-math-tab" class="tab-button tab-secondary" role="tab" aria-selected="false">Federal math</button>
+            <button id="provincial-math-tab" class="tab-button tab-secondary" role="tab" aria-selected="false">Provincial math</button>
+            <button id="payroll-math-tab" class="tab-button tab-secondary" role="tab" aria-selected="false">Payroll math</button>
         </nav>
 
         <main class="main-content">
             <div id="app-error" class="error-banner hidden" role="alert"></div>
 
-            <!-- TAB: CALCULATOR -->
-            <div id="calculator-content" class="tab-content active" role="tabpanel">
-                <div class="controls-section">
-                    <div class="tax-section federal-section">
-                        <h3 class="section-title federal-title">Your situation</h3>
+            <div id="math-switch" class="math-switch hidden" role="group" aria-label="Scenario explained on this tab">
+                <span class="math-switch-label">Explain:</span>
+                <button id="math-switch-a" type="button" class="math-switch-button active" aria-pressed="true">Scenario A</button>
+                <button id="math-switch-b" type="button" class="math-switch-button" aria-pressed="false">Scenario B</button>
+            </div>
 
+            <!-- TAB: SETUP -->
+            <div id="setup-content" class="tab-content active" role="tabpanel">
+                <p class="setup-intro">Enter a salary and where you live. Add a second scenario to compare another salary or another province or territory.</p>
+                <div class="scenario-grid">
+                    <div class="tax-section federal-section scenario-card">
+                        <h3 class="section-title federal-title">Scenario A</h3>
                         <div class="input-group">
-                            <label for="province-select" class="control-label">Province or territory of residence (on December 31)</label>
-                            <select id="province-select" class="select-input"></select>
+                            <label for="a-province-select" class="control-label">Province or territory of residence (on December 31)</label>
+                            <select id="a-province-select" class="select-input"></select>
                         </div>
-
                         <div class="input-group">
-                            <label for="income-input" class="control-label">Employment income (annual salary, one employer)</label>
+                            <label for="a-income-input" class="control-label">Employment income (annual salary, one employer)</label>
                             <div class="input-row">
-                                <input id="income-slider" type="range" min="0" max="500000" step="1000" value="75000" class="slider" aria-label="Employment income slider">
-                                <input id="income-input" type="number" min="0" step="1000" value="75000" class="number-input" inputmode="numeric">
+                                <input id="a-income-slider" type="range" min="0" max="500000" step="1000" value="75000" class="slider" aria-label="Scenario A salary slider">
+                                <input id="a-income-input" type="number" min="0" step="1000" value="75000" class="number-input" inputmode="numeric">
                             </div>
                         </div>
-
                         <div class="input-group">
-                            <label for="deductions-input" class="control-label">Other deductions from income (optional, e.g. RRSP contributions)</label>
+                            <label for="a-deductions-input" class="control-label">Other deductions from income (optional, e.g. RRSP contributions)</label>
                             <div class="input-row">
-                                <input id="deductions-slider" type="range" min="0" max="100000" step="500" value="0" class="slider" aria-label="Other deductions slider">
-                                <input id="deductions-input" type="number" min="0" step="500" value="0" class="number-input" inputmode="numeric">
+                                <input id="a-deductions-slider" type="range" min="0" max="100000" step="500" value="0" class="slider" aria-label="Scenario A deductions slider">
+                                <input id="a-deductions-input" type="number" min="0" step="500" value="0" class="number-input" inputmode="numeric">
                             </div>
                         </div>
-                        <p class="note-text">Single filer, employment income only. Refundable credits and benefits (GST/HST credit, Canada Workers Benefit, provincial benefits) are not included, so take-home pay is understated at low incomes.</p>
+                    </div>
+
+                    <div id="scenario-b-card" class="tax-section scenario-card scenario-b">
+                        <h3 class="section-title scenario-b-title">Scenario B</h3>
+                        <div class="input-group">
+                            <label for="b-province-select" class="control-label">Province or territory of residence (on December 31)</label>
+                            <select id="b-province-select" class="select-input"></select>
+                        </div>
+                        <div class="input-group">
+                            <label for="b-income-input" class="control-label">Employment income (annual salary, one employer)</label>
+                            <div class="input-row">
+                                <input id="b-income-slider" type="range" min="0" max="500000" step="1000" value="75000" class="slider" aria-label="Scenario B salary slider">
+                                <input id="b-income-input" type="number" min="0" step="1000" value="75000" class="number-input" inputmode="numeric">
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label for="b-deductions-input" class="control-label">Other deductions from income (optional, e.g. RRSP contributions)</label>
+                            <div class="input-row">
+                                <input id="b-deductions-slider" type="range" min="0" max="100000" step="500" value="0" class="slider" aria-label="Scenario B deductions slider">
+                                <input id="b-deductions-input" type="number" min="0" step="500" value="0" class="number-input" inputmode="numeric">
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- VISUALIZATION -->
+                <label class="compare-toggle-row">
+                    <input id="compare-toggle" type="checkbox" checked>
+                    <span>Compare with a second scenario (B)</span>
+                </label>
+                <p class="note-text">Single filer, employment income only. Refundable credits and benefits (GST/HST credit, Canada Workers Benefit, provincial benefits) are not included, so take-home pay is understated at low incomes.</p>
+                <button id="setup-to-output" type="button" class="primary-button">See take-home pay</button>
+            </div>
+
+            <!-- TAB: OUTPUT -->
+            <div id="output-content" class="tab-content" role="tabpanel">
+                <div class="headline-grid">
+                    <div class="headline-card headline-a">
+                        <p id="out-a-label" class="headline-label">Scenario A</p>
+                        <p id="out-a-take-home" class="headline-value">-</p>
+                        <p class="headline-sub"><span id="out-a-take-home-month">-</span> a month</p>
+                    </div>
+                    <div id="out-b-headline" class="headline-card headline-b">
+                        <p id="out-b-label" class="headline-label">Scenario B</p>
+                        <p id="out-b-take-home" class="headline-value">-</p>
+                        <p class="headline-sub"><span id="out-b-take-home-month">-</span> a month</p>
+                    </div>
+                    <div id="out-diff-headline" class="headline-card headline-diff">
+                        <p class="headline-label">Difference (B − A)</p>
+                        <p id="out-diff-take-home" class="headline-value">-</p>
+                        <p class="headline-sub"><span id="out-diff-take-home-month">-</span> a month</p>
+                    </div>
+                </div>
+                <p id="out-diff-sentence" class="diff-sentence">-</p>
+
                 <div class="visualization-section">
-                    <h2 class="section-heading">Where your salary goes</h2>
-                    <div class="percentage-display">
-                        <div class="percentage-item">
-                            <span class="percentage-label">Take-home</span>
-                            <span id="pct-take-home" class="percentage-value">-</span>
-                        </div>
-                        <div class="percentage-item">
-                            <span class="percentage-label">Federal tax</span>
-                            <span id="pct-federal" class="percentage-value">-</span>
-                        </div>
-                        <div class="percentage-item">
-                            <span id="pct-provincial-label" class="percentage-label">Provincial tax</span>
-                            <span id="pct-provincial" class="percentage-value">-</span>
-                        </div>
-                        <div class="percentage-item">
-                            <span class="percentage-label">CPP/QPP, EI, QPIP</span>
-                            <span id="pct-payroll" class="percentage-value">-</span>
-                        </div>
-                    </div>
-                    <div class="tax-bar-container">
-                        <div id="bar-take-home" class="tax-bar bar-take-home" title="Take-home pay"></div>
-                        <div id="bar-federal" class="tax-bar bar-federal" title="Federal tax"></div>
-                        <div id="bar-provincial" class="tax-bar bar-provincial" title="Provincial or territorial tax"></div>
-                        <div id="bar-payroll" class="tax-bar bar-payroll" title="Payroll contributions"></div>
-                    </div>
+                    <h2 class="section-heading">Where each salary goes</h2>
+                    <div id="out-bars" class="bars-stack"></div>
                     <div class="legend">
                         <div class="legend-item"><span class="legend-color bar-take-home"></span>Take-home</div>
                         <div class="legend-item"><span class="legend-color bar-federal"></span>Federal tax</div>
-                        <div class="legend-item"><span class="legend-color bar-provincial"></span><span id="legend-provincial-name">Provincial tax</span></div>
+                        <div class="legend-item"><span class="legend-color bar-provincial"></span><span id="out-legend-provincial">Provincial or territorial tax</span></div>
                         <div class="legend-item"><span class="legend-color bar-payroll"></span>Payroll contributions</div>
                     </div>
                 </div>
 
-                <!-- SUMMARY -->
-                <div>
-                    <h2 class="section-heading" style="text-align: center;">Tax summary</h2>
-                    <div class="summary-grid">
-                        <div class="summary-card federal-summary">
-                            <h3 class="summary-title federal-title">Federal tax</h3>
-                            <div class="summary-row">
-                                <span class="summary-label">Net income:</span>
-                                <span id="sum-fed-net-income" class="summary-value">-</span>
-                            </div>
-                            <div class="summary-row">
-                                <span class="summary-label">Taxable income:</span>
-                                <span id="sum-fed-taxable" class="summary-value">-</span>
-                            </div>
-                            <div class="summary-row">
-                                <span class="summary-label">Tax after credits:</span>
-                                <span id="sum-fed-after-credits" class="summary-value">-</span>
-                            </div>
-                            <div id="sum-fed-abatement-row" class="summary-row hidden">
-                                <span class="summary-label">Quebec abatement:</span>
-                                <span id="sum-fed-abatement" class="summary-value">-</span>
-                            </div>
-                            <div class="summary-row summary-divider federal-divider">
-                                <span id="sum-fed-tax-label" class="summary-label summary-label-strong">Federal tax:</span>
-                                <span id="sum-fed-tax" class="summary-value federal-title">-</span>
-                            </div>
-                            <div class="summary-row">
-                                <span class="summary-label">Marginal rate (federal):</span>
-                                <span id="sum-fed-marginal" class="summary-value">-</span>
-                            </div>
-                        </div>
-
-                        <div class="summary-card provincial-summary">
-                            <h3 id="sum-prov-title" class="summary-title provincial-title">Provincial tax</h3>
-                            <div class="summary-row">
-                                <span class="summary-label">Taxable income:</span>
-                                <span id="sum-prov-taxable" class="summary-value">-</span>
-                            </div>
-                            <div class="summary-row">
-                                <span class="summary-label">Tax after credits:</span>
-                                <span id="sum-prov-after-credits" class="summary-value">-</span>
-                            </div>
-                            <div id="sum-prov-surtax-row" class="summary-row hidden">
-                                <span class="summary-label">Surtax:</span>
-                                <span id="sum-prov-surtax" class="summary-value">-</span>
-                            </div>
-                            <div id="sum-prov-reductions-list"></div>
-                            <div id="sum-prov-health-row" class="summary-row hidden">
-                                <span id="sum-prov-health-label" class="summary-label">Health premium:</span>
-                                <span id="sum-prov-health" class="summary-value">-</span>
-                            </div>
-                            <div class="summary-row summary-divider provincial-divider">
-                                <span id="sum-prov-tax-label" class="summary-label summary-label-strong">Provincial tax:</span>
-                                <span id="sum-prov-tax" class="summary-value provincial-title">-</span>
-                            </div>
-                            <div class="summary-row">
-                                <span class="summary-label">Marginal rate (provincial):</span>
-                                <span id="sum-prov-marginal" class="summary-value">-</span>
-                            </div>
-                        </div>
-
-                        <div class="summary-card payroll-summary">
-                            <h3 class="summary-title payroll-title">Payroll contributions</h3>
-                            <div class="summary-row">
-                                <span id="sum-pension-label" class="summary-label">Pension plan:</span>
-                                <span id="sum-pension" class="summary-value">-</span>
-                            </div>
-                            <div class="summary-row">
-                                <span id="sum-pension2-label" class="summary-label">Second pension tier:</span>
-                                <span id="sum-pension2" class="summary-value">-</span>
-                            </div>
-                            <div class="summary-row">
-                                <span class="summary-label">EI premiums:</span>
-                                <span id="sum-ei" class="summary-value">-</span>
-                            </div>
-                            <div id="sum-qpip-row" class="summary-row hidden">
-                                <span class="summary-label">QPIP premiums:</span>
-                                <span id="sum-qpip" class="summary-value">-</span>
-                            </div>
-                            <div class="summary-row summary-divider payroll-divider">
-                                <span class="summary-label summary-label-strong">Total payroll:</span>
-                                <span id="sum-payroll-total" class="summary-value payroll-title">-</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="total-summary">
-                        <h3 class="section-heading" style="text-align: center; margin-bottom: 1rem;">Totals</h3>
-                        <div class="total-grid">
-                            <div class="total-item">
-                                <p class="total-label">Federal tax</p>
-                                <p id="total-federal" class="total-value federal-title">-</p>
-                            </div>
-                            <div class="total-item">
-                                <p id="total-provincial-label" class="total-label">Provincial tax</p>
-                                <p id="total-provincial" class="total-value provincial-title">-</p>
-                            </div>
-                            <div class="total-item">
-                                <p class="total-label">Payroll</p>
-                                <p id="total-payroll" class="total-value payroll-title">-</p>
-                            </div>
-                            <div class="total-item">
-                                <p class="total-label">All deductions</p>
-                                <p id="total-deductions" class="total-value">-</p>
-                            </div>
-                        </div>
-                        <div class="total-main">
-                            <div class="total-main-item">
-                                <p class="total-label">Take-home pay</p>
-                                <p id="total-take-home" class="total-main-value take-home-value">-</p>
-                            </div>
-                            <div class="total-main-item">
-                                <p class="total-label">Effective rate (tax + payroll)</p>
-                                <p id="total-effective-rate" class="total-main-value">-</p>
-                            </div>
-                        </div>
-                        <div class="total-grid rates-grid">
-                            <div class="total-item">
-                                <p class="total-label">Effective rate (income tax only)</p>
-                                <p id="total-effective-income-tax-rate" class="total-value">-</p>
-                            </div>
-                            <div class="total-item">
-                                <p class="total-label">Marginal rate (income tax)</p>
-                                <p id="total-marginal-rate" class="total-value">-</p>
-                            </div>
-                            <div class="total-item">
-                                <p class="total-label">Marginal rate (tax + payroll)</p>
-                                <p id="total-marginal-rate-payroll" class="total-value">-</p>
-                            </div>
-                        </div>
-                        <p class="note-text">Marginal rate: tax on your next dollar of salary. Effective rate: share of your whole salary.</p>
+                <div class="bracket-table-container compare-table-container">
+                    <h3>Side by side</h3>
+                    <div class="table-wrapper">
+                        <table class="bracket-table compare-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Item</th>
+                                    <th id="out-th-a" scope="col">A</th>
+                                    <th id="out-th-b" scope="col">B</th>
+                                    <th id="out-th-diff" scope="col">B − A</th>
+                                </tr>
+                            </thead>
+                            <tbody id="out-table-body"></tbody>
+                        </table>
                     </div>
                 </div>
+                <p class="note-text">Marginal rate: tax on your next dollar of salary. Effective rate: share of your whole salary. The Federal, Provincial and Payroll math tabs show every step.</p>
+                <!-- UI-3: "Verify these numbers" (official source links per jurisdiction) goes here. -->
             </div>
 
+            <!-- TAB: ALL PROVINCES -->
+            <div id="provinces-content" class="tab-content" role="tabpanel">
+                <h2 id="provinces-title" class="section-heading" style="text-align: center;">All provinces and territories</h2>
+                <div class="bracket-table-container">
+                    <div class="table-wrapper">
+                        <table id="provinces-table" class="bracket-table provinces-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col"><button type="button" class="sort-button" data-sort="name">Province or territory</button></th>
+                                    <th scope="col"><button type="button" class="sort-button" data-sort="incomeTax">Income tax</button></th>
+                                    <th scope="col"><button type="button" class="sort-button" data-sort="payroll">Payroll</button></th>
+                                    <th scope="col" aria-sort="descending"><button type="button" class="sort-button" data-sort="takeHome">Take-home</button></th>
+                                    <th scope="col"><button type="button" class="sort-button" data-sort="effectiveRate">Effective rate</button></th>
+                                    <th scope="col"><button type="button" class="sort-button" data-sort="marginalRate">Marginal rate</button></th>
+                                </tr>
+                            </thead>
+                            <tbody id="provinces-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <p class="note-text">Same salary and deductions as Scenario A in every province and territory. Quebec uses QPP, QPIP and the Quebec EI rate. Effective rate includes payroll; marginal rate is income tax only. Click a column heading to sort.</p>
+
+                <div class="bracket-table-container">
+                    <h3>Sales tax (cost-of-living context)</h3>
+                    <div class="table-wrapper">
+                        <table class="bracket-table sales-tax-table">
+                            <thead>
+                                <tr><th scope="col">Province or territory</th><th scope="col">GST</th><th scope="col">PST / QST</th><th scope="col">HST</th><th scope="col">Combined</th><th scope="col">Basis</th></tr>
+                            </thead>
+                            <tbody id="sales-tax-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <p class="note-text">General rates on most purchases; some goods are exempt or taxed differently. Hover a Basis cell for the full note. No spending model is applied.</p>
+            </div>
             <!-- TAB: FEDERAL TAX MATH -->
             <div id="federal-math-content" class="tab-content" role="tabpanel">
                 <div class="math-section">

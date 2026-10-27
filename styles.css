@@ -2007,3 +2007,373 @@ body {
 .dark .provincial-summary { background-color: #1e293b; border-color: #eab308; }
 .dark .provincial-container { border-color: #a16207 !important; }
 .dark .provincial-table h3 { color: #facc15; }
+
+/* ==========================================================================
+   UI-2: Setup -> Output, A/B comparison, all-provinces table
+   ========================================================================== */
+
+.setup-intro {
+    color: #475569;
+    margin-bottom: 1rem;
+}
+
+.dark .setup-intro { color: #cbd5e1; }
+
+.scenario-grid {
+    display: grid;
+    gap: 0;
+}
+
+.scenario-b {
+    border-color: #14b8a6; /* teal-500 */
+    border-width: 3px;
+}
+
+.scenario-b-title { color: #0f766e; } /* teal-700 */
+.dark .scenario-b-title { color: #2dd4bf; }
+.dark .scenario-b { border-color: #0f766e; }
+
+.compare-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 500;
+    cursor: pointer;
+    min-height: 44px;
+}
+
+.compare-toggle-row input {
+    width: 1.25rem;
+    height: 1.25rem;
+    accent-color: #4f46e5;
+}
+
+.primary-button {
+    display: block;
+    width: 100%;
+    margin-top: 1.25rem;
+    padding: 0.875rem 1rem;
+    min-height: 48px;
+    border: none;
+    border-radius: 0.5rem;
+    background-color: #4f46e5;
+    color: white;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.primary-button:hover { background-color: #4338ca; }
+.primary-button:focus { outline: 2px solid #4f46e5; outline-offset: 2px; }
+
+/* Math-tab scenario switch */
+.math-switch {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.math-switch.hidden { display: none; }
+
+.math-switch-label {
+    font-size: 0.875rem;
+    color: #64748b;
+}
+
+.math-switch-button {
+    padding: 0.5rem 1rem;
+    min-height: 40px;
+    border: 1px solid #cbd5e1;
+    border-radius: 9999px;
+    background: white;
+    color: #334155;
+    font: inherit;
+    font-size: 0.875rem;
+    cursor: pointer;
+}
+
+.math-switch-button.active {
+    background-color: #4f46e5;
+    border-color: #4f46e5;
+    color: white;
+}
+
+.dark .math-switch-button {
+    background: #334155;
+    border-color: #475569;
+    color: #e2e8f0;
+}
+
+.dark .math-switch-button.active {
+    background-color: #6366f1;
+    border-color: #6366f1;
+    color: white;
+}
+
+/* Secondary tabs read lighter */
+.tab-button.tab-secondary:not(.active) {
+    font-weight: 400;
+    font-size: 0.875rem;
+}
+
+/* Output headline */
+.headline-grid {
+    display: grid;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.headline-card {
+    border-radius: 0.75rem;
+    border: 2px solid #e2e8f0;
+    padding: 1rem;
+    text-align: center;
+    background-color: #f8fafc;
+}
+
+.headline-card.hidden { display: none; }
+.headline-a { border-color: #3b82f6; background-color: #eff6ff; }
+.headline-b { border-color: #14b8a6; background-color: #f0fdfa; }
+.headline-diff { border-color: #cbd5e1; }
+
+.headline-label {
+    font-size: 0.875rem;
+    color: #475569;
+    font-weight: 500;
+}
+
+.headline-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #059669;
+    line-height: 1.2;
+    margin: 0.25rem 0;
+}
+
+.headline-diff .headline-value { color: #334155; }
+
+.headline-sub {
+    font-size: 0.875rem;
+    color: #64748b;
+}
+
+.headline-value.diff-positive,
+td.diff-positive { color: #059669; }
+
+.headline-value.diff-negative,
+td.diff-negative { color: #dc2626; }
+
+.diff-sentence {
+    text-align: center;
+    color: #334155;
+    margin-bottom: 1rem;
+}
+
+.dark .headline-card { background-color: #0f172a; border-color: #475569; }
+.dark .headline-a { border-color: #3b82f6; }
+.dark .headline-b { border-color: #14b8a6; }
+.dark .headline-label, .dark .headline-sub { color: #cbd5e1; }
+.dark .headline-value { color: #34d399; }
+.dark .headline-diff .headline-value { color: #f1f5f9; }
+.dark .headline-value.diff-positive, .dark td.diff-positive { color: #34d399; }
+.dark .headline-value.diff-negative, .dark td.diff-negative { color: #f87171; }
+.dark .diff-sentence { color: #e2e8f0; }
+
+/* Stacked bars, one per scenario */
+.bar-row { margin-bottom: 0.75rem; }
+
+.bar-row-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+}
+
+.bar-row .tax-bar-container { margin-bottom: 0; }
+
+/* Side-by-side and all-provinces tables */
+.compare-table tbody th,
+.provinces-table tbody th,
+.sales-tax-table tbody th {
+    text-align: left;
+    font-weight: 500;
+    padding-left: 1.5rem;
+}
+
+.compare-table tr.section-row th {
+    text-align: left;
+    background-color: #f1f5f9;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #475569;
+    position: static;
+}
+
+.compare-table tr.strong-row th,
+.compare-table tr.strong-row td {
+    font-weight: 700;
+}
+
+.compare-table tr.row-federal td { color: #1e40af; }
+.compare-table tr.row-provincial td { color: #a16207; }
+.compare-table tr.row-payroll td { color: #6b21a8; }
+.compare-table tr.row-take-home td:not(.diff-negative):not(.diff-positive) { color: #059669; }
+
+.dark .compare-table tr.section-row th { background-color: #0f172a; color: #94a3b8; }
+.dark .compare-table tbody th, .dark .provinces-table tbody th, .dark .sales-tax-table tbody th { color: #e2e8f0; }
+.dark .compare-table tr.row-federal td { color: #93c5fd; }
+.dark .compare-table tr.row-provincial td { color: #facc15; }
+.dark .compare-table tr.row-payroll td { color: #c084fc; }
+.dark .compare-table tr.row-take-home td:not(.diff-negative):not(.diff-positive) { color: #34d399; }
+
+.compare-table th.hidden, .compare-table td.hidden { display: none; }
+
+.sort-button {
+    background: none;
+    border: none;
+    font: inherit;
+    color: inherit;
+    text-transform: inherit;
+    letter-spacing: inherit;
+    cursor: pointer;
+    padding: 0;
+    text-align: inherit;
+}
+
+.sort-button::after { content: ' \2195'; opacity: 0.4; }
+th[aria-sort="ascending"] .sort-button::after { content: ' \2191'; opacity: 1; }
+th[aria-sort="descending"] .sort-button::after { content: ' \2193'; opacity: 1; }
+
+.note-cell {
+    text-align: left !important;
+    font-size: 0.75rem;
+    min-width: 14rem;
+    white-space: normal;
+}
+
+/* CONFLICT data flag (values differ between official sources) */
+.flag-badge.flag-conflict {
+    background-color: #fed7aa; /* orange-200 */
+    color: #7c2d12;
+}
+
+.dark .flag-badge.flag-conflict {
+    background-color: #9a3412;
+    color: #ffedd5;
+}
+
+@media (min-width: 640px) {
+    .scenario-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    .headline-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .headline-grid:has(> .hidden) {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .compare-table tbody th,
+    .provinces-table tbody th,
+    .sales-tax-table tbody th {
+        padding-left: 1rem;
+    }
+
+    .headline-value { font-size: 1.75rem; }
+}
+
+/* Row-label cells in tbody are <th scope="row">: not the uppercase sticky header style */
+.bracket-table tbody th {
+    text-transform: none;
+    letter-spacing: normal;
+    font-size: inherit;
+    position: static;
+    background-color: transparent;
+    color: inherit;
+}
+
+.bracket-table tbody tr.section-row th {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.75rem;
+}
+
+.compare-table tbody tr.section-row th { background-color: #f1f5f9; }
+.dark .compare-table tbody tr.section-row th { background-color: #0f172a; }
+
+.dark .bracket-table tbody th {
+    background-color: transparent;
+    color: #e2e8f0;
+}
+
+.compare-table td { white-space: nowrap; }
+
+@media (max-width: 480px) {
+    .compare-table-container h3 { padding-left: 0.75rem; }
+
+    .compare-table th,
+    .compare-table td,
+    .compare-table tbody th {
+        padding: 0.5rem 0.3rem;
+        font-size: 0.75rem;
+    }
+
+    .compare-table th:first-child,
+    .compare-table td:first-child { padding-left: 0.5rem; }
+
+    .compare-table th:last-child,
+    .compare-table td:last-child { padding-right: 0.5rem; }
+
+    .compare-table thead th { font-size: 0.625rem; letter-spacing: 0; }
+}
+
+/* UI-2 fix round: wider layout on desktop so the comparison tables fit */
+.container {
+    max-width: 1040px; /* was 672px; width stays 100% below this */
+}
+
+/* Scroll cue: shadows at the edges of a table that scrolls sideways
+   (CSS-only; the covers move with the content, the shadows stay put). */
+.table-wrapper {
+    background:
+        linear-gradient(to right, white 30%, rgba(255, 255, 255, 0)) left center / 2rem 100% no-repeat local,
+        linear-gradient(to left, white 30%, rgba(255, 255, 255, 0)) right center / 2rem 100% no-repeat local,
+        radial-gradient(farthest-side at 0 50%, rgba(15, 23, 42, 0.25), rgba(15, 23, 42, 0)) left center / 0.75rem 100% no-repeat scroll,
+        radial-gradient(farthest-side at 100% 50%, rgba(15, 23, 42, 0.25), rgba(15, 23, 42, 0)) right center / 0.75rem 100% no-repeat scroll;
+}
+
+.dark .table-wrapper {
+    background:
+        linear-gradient(to right, #1e293b 30%, rgba(30, 41, 59, 0)) left center / 2rem 100% no-repeat local,
+        linear-gradient(to left, #1e293b 30%, rgba(30, 41, 59, 0)) right center / 2rem 100% no-repeat local,
+        radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0)) left center / 0.75rem 100% no-repeat scroll,
+        radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0)) right center / 0.75rem 100% no-repeat scroll;
+}
+
+/* Shorter note column */
+.note-cell {
+    min-width: 8rem;
+    white-space: nowrap;
+}
+
+/* Text scroll cue on phones for the wide All-provinces tables */
+@media (max-width: 640px) {
+    #provinces-content .bracket-table-container::after {
+        content: 'Swipe the table sideways for more columns \2192';
+        display: block;
+        font-size: 0.75rem;
+        color: #64748b;
+        padding: 0.5rem 1rem;
+    }
+
+    .dark #provinces-content .bracket-table-container::after {
+        color: #94a3b8;
+    }
+}
