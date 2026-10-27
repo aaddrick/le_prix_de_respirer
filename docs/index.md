@@ -1,0 +1,28 @@
+# Docs
+
+The front door is the repo [README](../README.md). This folder holds what a
+contributor, human or agent, needs in order to change the calculator without
+breaking it. Pages are grouped by what you are trying to do.
+
+## Start here
+
+- [Getting started](getting-started.md): running it locally, and the two pages
+  it serves.
+
+## Changing it
+
+- [Architecture](architecture.md): the modules, how an input change reaches
+  the screen, the tabs, and why DOM ids are load bearing.
+- [Tax rules](tax-rules.md): where every bracket and deduction lives, what
+  feeds what, and how to add a jurisdiction.
+
+## Checking it
+
+- [Testing](testing.md): the Node check, the reference scenario, and the
+  manual pass.
+- [Troubleshooting](troubleshooting.md).
+
+## Contributing
+
+Repository rules are in [CLAUDE.md](../CLAUDE.md). Rules for editing these
+pages are in [docs/CLAUDE.md](CLAUDE.md).
