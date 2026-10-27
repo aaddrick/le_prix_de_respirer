@@ -19,6 +19,11 @@ builds the classes in `TaxCalculatorApp` and is the only place they meet.
 a module that is missing from the index is never loaded. See
 [tax-rules.md](tax-rules.md) for the data layout.
 
+A small inline script in the head of `index.html` applies the stored theme
+before the page paints, so a dark-mode reload does not flash light. It reads the
+same `theme` key as `js/themeManager.js`, so change the key in both places or
+the flash returns.
+
 `js/taxCalculator.js` and `js/data/` stay DOM-free because they are the only
 modules Node can import, and the check in [testing.md](testing.md) depends on
 that.

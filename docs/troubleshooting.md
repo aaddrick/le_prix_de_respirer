@@ -44,5 +44,8 @@ confirmed from an official 2026 source. See [tax-rules.md](tax-rules.md).
 `js/taxCalculator.js` or `js/data/` now touches the DOM. Move it to
 `DisplayManager` or `UIControls`.
 
-**Fonts look different.** Google Fonts didn't load. This is cosmetic, and
-the app works without it.
+**Fonts look different.** The font files in `fonts/` returned 404, so the
+page fell back to system fonts. The usual cause is serving from the wrong
+directory, so check that the server was started in the repo root and look for
+404s on `fonts/` in the browser's network panel. This is cosmetic, and the app
+works without them.
