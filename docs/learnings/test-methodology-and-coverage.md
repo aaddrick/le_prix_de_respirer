@@ -15,19 +15,16 @@ restates them for a static site with a DOM-free calculator. The commands and
 scenarios themselves live in [testing.md](../testing.md). This page says how
 to write and judge them.
 
-> **Planned for the Canada rewrite.** The Canada rewrite
-> moves rates out of the `TaxCalculator` constructor into one DOM-free
-> module per jurisdiction under `js/data/`. Those modules, and any script
-> under `qa/tools/`, do not exist yet. Every command below that names them is
-> marked **(planned)**. Everything not marked runs today.
+> **Where things live.** Rates are in one DOM-free module per jurisdiction
+> under `js/data/`, and `js/taxCalculator.js` holds the arithmetic.
 
 ## What you can run
 
 | Surface | Needs | Covers |
 |---|---|---|
 | Node check on `js/taxCalculator.js` | `node` 18 or later | Every calculation. The only automated check. |
-| Data module checks **(planned)** | `node` | Each jurisdiction module loads, has the agreed fields, and every number is sourced. |
-| Independent recomputation **(planned)** | `node` | The calculator against figures derived from the published tables, never from the repo's own data. |
+| Data module checks | `node` | Each jurisdiction module loads, has the agreed fields, and every number is sourced. |
+| Independent recomputation | `node` | The calculator against figures derived from the published tables, never from the repo's own data. |
 | Manual pass over HTTP | `python3 -m http.server`, a browser | Wiring: DOM ids, tabs, console, phone width. |
 
 Nothing here needs a framework or a `package.json`. Adding one to run a check
@@ -93,11 +90,10 @@ wrong rate in the data module is wrong in both, and the check passes.
 Take each expected figure from the published table (CRA or the provincial
 ministry, with the URL recorded next to the figure), worked by hand or by a
 separate script that carries its own copy of the numbers typed from the
-source. The Canada plan assigns this to `qa/tools/indep_calc.mjs`
-**(planned)**, written by the verifier from the cited tables and never
-importing from `js/data/`. If your reference scenario can only be produced by
-running the calculator, it is a snapshot, not a check. Label it a snapshot, as
-[testing.md](../testing.md) already does for the existing figures.
+source. The independent script is the verifier's own, written from the
+cited tables and never importing from `js/data/`. If your reference scenario can only be produced by
+running the calculator, it is a snapshot, not a check. Label it a snapshot, and say in
+[testing.md](../testing.md) how it was cross-checked.
 
 ### A stub that mirrors production cannot catch a change to production
 
@@ -108,7 +104,7 @@ the real module renames a field, the stub keeps the check green while the
 real wiring is broken.
 
 At least one check per jurisdiction loads the real module from
-`js/data/<code>.js` **(planned)**, passes it through the real calculator, and
+`js/data/<code>.js`, passes it through the real calculator, and
 checks the figure from the independent source. Stubs are for isolating one
 rule (a surtax on its own). They never replace the real load.
 
@@ -120,7 +116,7 @@ jurisdiction list that came back empty all make `for` loops finish without a
 single comparison, and the script prints "all passed".
 
 Every check that loops over jurisdictions asserts the list first: it is
-non-empty and contains every code the plan names **(planned)**, one per
+non-empty and contains every province and territory code in `js/data/index.js`, one per
 jurisdiction. It counts the comparisons it made and fails if the count is
 zero. It treats these as failures, not as passes or skips:
 
@@ -157,7 +153,7 @@ dollar above the limit, as in the near-miss section above. It never gets the
 expected tax from `calculateBracketTax()` in `js/taxCalculator.js`, because
 that makes the expectation circular. Sharing is only for the helper that
 decides which inputs to test, such as the list of limits read from the data
-module **(planned)**, so the check and the calculator cannot disagree about
+module, so the check and the calculator cannot disagree about
 where the edges are. Rules that exist only in the independent computation (for
 instance the Quebec abatement) get their own near-miss fixture on the
 calculator side as well.
@@ -204,7 +200,7 @@ loads. A cheap load check exercises the real import graph in a browser:
 
 A page can render with every module failing quietly, so check the figures, not
 just the absence of an error. After the Canada rewrite, repeat step 3 once per
-province and territory **(planned)**: a missing or misnamed module file only
+province and territory: a missing or misnamed module file only
 breaks the one jurisdiction that imports it, so a pass on a single province
 proves nothing about the others.
 
@@ -238,7 +234,7 @@ replaces the state, county, and filing-status controls and must leave no
 lookup behind that points at a removed element.
 
 **No DOM in the calculator.** `js/taxCalculator.js`, and each data module
-**(planned)**, must import in Node with no `document`, `window`, or
+must import in Node with no `document`, `window`, or
 `localStorage`. The Node check is the test of that. It also fails if a data
 module imports something that touches the DOM, so run it after adding any
 import.
@@ -283,7 +279,7 @@ What to demand from your own change and from someone else's.
 - **Re-fetch the source for every rate you change.** A value copied from a
   summary or a third-party table can be last year's. Open the official page,
   confirm it states the tax year, and record the URL and the retrieval date
-  next to the value (the planned `sources` field in each data module, and
+  next to the value (the `sources` field in each data module, and
   `flags` for anything not confirmed). A value you could not confirm is flagged
   as unverified, never filled in from memory, because a guessed rate looks
   exactly like a checked one.
@@ -296,7 +292,7 @@ What to demand from your own change and from someone else's.
   hides the uncovered cases. Name each check after the figure it pins.
 - **Magic numbers need a source.** A literal rate or limit in
   `js/taxCalculator.js` with no data-module entry and no citation is an
-  orphan. Rates belong in the data modules **(planned)**, and the calculator
+  orphan. Rates belong in the data modules, and the calculator
   owns the arithmetic only.
 
 ## The mutation check
@@ -315,7 +311,7 @@ directory (`rm -rf "$d"` after confirming `$d` is non-empty and is the
 `mktemp` path). Do not edit the real file and rely on remembering to undo it.
 
 Mutations worth running for the Canada rewrite, each against the jurisdiction
-it touches **(planned: the data modules)**:
+it touches (the data modules):
 
 - Nudge one bracket rate. A check at an income in that bracket fails.
 - Move one bracket limit by a dollar. The near-miss fixture at that limit

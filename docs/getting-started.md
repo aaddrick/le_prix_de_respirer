@@ -9,7 +9,7 @@ python3 -m http.server 8000
 | URL | What it is |
 |---|---|
 | `http://localhost:8000` | The calculator (`index.html`) |
-| `http://localhost:8000/example.html` | Each module used on its own, one button per example |
+| `http://localhost:8000/example.html` | A few Canadian scenarios run through the calculator module, one button each |
 
 **It has to be HTTP.** Browsers block ES module imports from `file://`.
 `index.html` still renders its markup, so the page looks fine, but no script
@@ -19,6 +19,9 @@ Edit a file and refresh. No compile step happens in between.
 
 The only network dependency is the Inter font from Google Fonts. Offline, the
 page falls back to system fonts and still works.
+
+To check a calculation without a browser, use the Node check in
+[testing.md](testing.md).
 
 Next: [Architecture](architecture.md) for how the pieces connect, or
 [Tax rules](tax-rules.md) to change the numbers.
