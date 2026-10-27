@@ -1,1008 +1,369 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-CA">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive Federal & Maryland Tax Visualization Tool</title>
-    <!-- Local CSS for mobile-friendly styling -->
+    <title>Canadian Income Tax Calculator, 2026 Tax Year</title>
+    <link rel="icon" href="data:,">
     <link rel="stylesheet" href="styles.css">
-    <!-- Google Fonts: Inter (with fallback) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preload" href="fonts/anton-400.woff2" as="font" type="font/woff2" crossorigin>
+    <!-- Apply the saved theme before first paint (same rule and key as js/themeManager.js). -->
+    <script>try{var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark');}catch(e){}</script>
 </head>
-<body class="dark:bg-slate-900 text-slate-800 dark:text-slate-200 transition-colors duration-300">
+<body>
 
     <div class="container">
 
         <header class="header">
-            <!-- Dark/Light Mode Toggle -->
-            <div class="absolute top-0 right-0">
-                <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode">
-                    <svg id="theme-toggle-dark-icon" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+            <div class="head-bar">
+                <p class="kicker">2026 tax year &middot; Canada</p>
+                <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle dark mode">
+                    <svg id="theme-toggle-dark-icon" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                         <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
                     </svg>
-                    <svg id="theme-toggle-light-icon" class="hidden" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                    <svg id="theme-toggle-light-icon" class="hidden" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                         <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"></path>
                     </svg>
                 </button>
             </div>
-            <h1 class="main-title">Federal & Maryland Tax Visualization Tool</h1>
-            <p class="subtitle">Tool to help me understand taxes. Would love support to expand it to every state/county</p>
+            <h1 class="main-title">Canadian Income Tax Calculator</h1>
+            <p class="subtitle">2026 tax year. Enter your salary and where you live, see your take-home pay after income tax, CPP/QPP, EI and QPIP, and compare it with a second salary or province.</p>
         </header>
 
-        <!-- TAB NAVIGATION -->
-        <nav class="tab-navigation">
-            <button id="calculator-tab" class="tab-button active" aria-selected="true">
-                Calculator
-            </button>
-            <button id="custom-calc-tab" class="tab-button" aria-selected="false">
-                Federal Tax Math
-            </button>
-            <button id="maryland-calc-tab" class="tab-button" aria-selected="false">
-                Maryland Tax Math
-            </button>
-            <button id="bracket-breakdown-tab" class="tab-button" aria-selected="false">
-                Tax Bracket Breakdown
-            </button>
+        <!-- TAB NAVIGATION: ids are built from TAB_NAMES in js/tabManager.js -->
+        <nav class="tab-navigation" role="tablist">
+            <button id="setup-tab" class="tab-button active" role="tab" aria-selected="true">1. Setup</button>
+            <button id="output-tab" class="tab-button" role="tab" aria-selected="false">2. Take-home</button>
+            <button id="provinces-tab" class="tab-button" role="tab" aria-selected="false">All provinces</button>
+            <button id="federal-math-tab" class="tab-button tab-secondary" role="tab" aria-selected="false">Federal math</button>
+            <button id="provincial-math-tab" class="tab-button tab-secondary" role="tab" aria-selected="false">Provincial math</button>
+            <button id="payroll-math-tab" class="tab-button tab-secondary" role="tab" aria-selected="false">Payroll math</button>
         </nav>
 
         <main class="main-content">
-            <!-- TAB CONTENT: CALCULATOR VIEW -->
-            <div id="calculator-content" class="tab-content active">
-                <!-- CONTROLS SECTION -->
-            <div class="controls-section">
-                <div class="control-group">
-                    <label class="control-label">Filing Status</label>
-                    <div id="filing-status" role="radiogroup" class="filing-status">
-                        <label>
-                            <input type="radio" name="filingStatus" value="1">
-                            <div class="filing-status-option">Single</div>
-                        </label>
-                        <label>
-                            <input type="radio" name="filingStatus" value="2" checked>
-                            <div class="filing-status-option">Married</div>
-                        </label>
-                    </div>
-                </div>
-                
-                <!-- FEDERAL TAX SECTION -->
-                <div class="tax-section federal-section">
-                    <h3 class="section-title federal-title">Federal Taxes</h3>
-                    <div class="input-group">
-                        <label for="federal-income-input" class="control-label">Federal Gross Income</label>
-                        <div class="input-row">
-                            <input id="federal-income-slider" type="range" min="0" max="1000000" step="1000" value="0" class="slider">
-                            <input id="federal-income-input" type="number" min="0" max="1000000" step="1000" value="0" class="number-input">
-                        </div>
-                    </div>
-                    <div class="input-group">
-                        <label for="federal-adjustments-input" class="control-label">Federal Adjustments to Income</label>
-                        <div class="input-row">
-                            <input id="federal-adjustments-slider" type="range" min="0" max="1000000" step="500" value="0" class="slider">
-                            <input id="federal-adjustments-input" type="number" min="0" max="1000000" step="500" value="0" class="number-input">
-                        </div>
-                    </div>
-                    <div class="display-box concept-agi">
-                        <p class="display-label">Federal AGI</p>
-                        <p id="federal-agi-display" class="display-value">$0</p>
-                    </div>
-                    <div class="input-group">
-                        <label for="federal-deductions-input" class="control-label">Federal Deductions</label>
-                        <div class="input-row">
-                            <input id="federal-deductions-slider" type="range" min="0" max="1000000" step="500" value="0" class="slider">
-                            <input id="federal-deductions-input" type="number" min="0" max="1000000" step="500" value="0" class="number-input">
-                        </div>
-                    </div>
-                    <div class="display-box concept-taxable-income">
-                        <p class="display-label">Federal Taxable Income</p>
-                        <p id="federal-taxable-income-display" class="display-value">$0</p>
-                    </div>
-                    <div class="input-group">
-                        <label for="federal-credits-input" class="control-label">Federal Tax Credits</label>
-                        <div class="input-row">
-                            <input id="federal-credits-slider" type="range" min="0" max="1000000" step="100" value="0" class="slider">
-                            <input id="federal-credits-input" type="number" min="0" max="1000000" step="100" value="0" class="number-input">
-                        </div>
-                    </div>
-                </div>
+            <div id="app-error" class="error-banner hidden" role="alert"></div>
 
-                <!-- STATE TAX SECTION -->
-                <div class="tax-section state-section">
-                    <h3 class="section-title state-title">Maryland State & Anne Arundel County Taxes</h3>
-                    <div class="input-group">
-                        <label for="state-income-input" class="control-label">Maryland Gross Income</label>
-                        <div class="input-row">
-                            <input id="state-income-slider" type="range" min="0" max="1000000" step="1000" value="0" class="slider">
-                            <input id="state-income-input" type="number" min="0" max="1000000" step="1000" value="0" class="number-input">
-                        </div>
-                    </div>
-                    <div class="input-group">
-                        <label for="state-adjustments-input" class="control-label">Maryland Adjustments to Income</label>
-                        <div class="input-row">
-                            <input id="state-adjustments-slider" type="range" min="0" max="1000000" step="500" value="0" class="slider">
-                            <input id="state-adjustments-input" type="number" min="0" max="1000000" step="500" value="0" class="number-input">
-                        </div>
-                    </div>
-                    <div class="display-box concept-agi">
-                        <p class="display-label">Maryland AGI</p>
-                        <p id="state-agi-display" class="display-value">$0</p>
-                    </div>
-                    <div class="input-group">
-                        <label for="state-deductions-input" class="control-label">Maryland Deductions</label>
-                        <div class="input-row">
-                            <input id="state-deductions-slider" type="range" min="0" max="1000000" step="500" value="0" class="slider">
-                            <input id="state-deductions-input" type="number" min="0" max="1000000" step="500" value="0" class="number-input">
-                        </div>
-                    </div>
-                    <div class="display-box concept-taxable-income">
-                        <p class="display-label">Maryland Taxable Income</p>
-                        <p id="state-taxable-income-display" class="display-value">$0</p>
-                    </div>
-                    <div class="input-group">
-                        <label for="state-credits-input" class="control-label">Maryland Tax Credits</label>
-                        <div class="input-row">
-                            <input id="state-credits-slider" type="range" min="0" max="1000000" step="100" value="0" class="slider">
-                            <input id="state-credits-input" type="number" min="0" max="1000000" step="100" value="0" class="number-input">
-                        </div>
-                    </div>
-                </div>
+            <div id="math-switch" class="math-switch hidden" role="group" aria-label="Scenario explained on this tab">
+                <span class="math-switch-label">Explain:</span>
+                <button id="math-switch-a" type="button" class="math-switch-button active" aria-pressed="true">Scenario A</button>
+                <button id="math-switch-b" type="button" class="math-switch-button" aria-pressed="false">Scenario B</button>
             </div>
 
-            <!-- VISUALIZATION SECTION -->
-            <div class="visualization-section">
-                <h2 class="section-heading">Income Breakdown</h2>
-                <!-- Percentage Display Area -->
-                <div id="percentage-display" class="percentage-display">
-                    <div class="percentage-item">
-                        <span class="percentage-label">Take-Home</span>
-                        <span id="percentage-take-home" class="percentage-value">0.0%</span>
+            <!-- TAB: SETUP -->
+            <div id="setup-content" class="tab-content active" role="tabpanel">
+                <p class="setup-intro">Enter a salary and where you live. Add a second scenario to compare another salary or another province or territory.</p>
+                <div class="scenario-grid">
+                    <div class="scenario-card">
+                        <h3 class="section-title">Scenario <span class="scenario-letter">A</span></h3>
+                        <div class="input-group">
+                            <label for="a-province-select" class="control-label">Province or territory of residence (on December 31)</label>
+                            <select id="a-province-select" class="select-input"></select>
+                        </div>
+                        <div class="input-group">
+                            <label for="a-income-input" class="control-label">Employment income (annual salary, one employer)</label>
+                            <div class="input-row">
+                                <input id="a-income-slider" type="range" min="0" max="500000" step="1000" value="75000" class="slider" aria-label="Scenario A salary slider">
+                                <input id="a-income-input" type="number" min="0" step="1000" value="75000" class="number-input" inputmode="numeric">
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label for="a-deductions-input" class="control-label">Other deductions from income (optional, e.g. RRSP contributions)</label>
+                            <div class="input-row">
+                                <input id="a-deductions-slider" type="range" min="0" max="100000" step="500" value="0" class="slider" aria-label="Scenario A deductions slider">
+                                <input id="a-deductions-input" type="number" min="0" step="500" value="0" class="number-input" inputmode="numeric">
+                            </div>
+                        </div>
                     </div>
-                    <div class="percentage-item">
-                        <span class="percentage-label">Federal Tax</span>
-                        <span id="percentage-federal" class="percentage-value">0.0%</span>
-                    </div>
-                    <div class="percentage-item">
-                        <span class="percentage-label">State Tax</span>
-                        <span id="percentage-state" class="percentage-value">0.0%</span>
-                    </div>
-                    <div class="percentage-item">
-                        <span class="percentage-label">County Tax</span>
-                        <span id="percentage-county" class="percentage-value">0.0%</span>
+
+                    <div id="scenario-b-card" class="scenario-card">
+                        <h3 class="section-title">Scenario <span class="scenario-letter">B</span></h3>
+                        <div class="input-group">
+                            <label for="b-province-select" class="control-label">Province or territory of residence (on December 31)</label>
+                            <select id="b-province-select" class="select-input"></select>
+                        </div>
+                        <div class="input-group">
+                            <label for="b-income-input" class="control-label">Employment income (annual salary, one employer)</label>
+                            <div class="input-row">
+                                <input id="b-income-slider" type="range" min="0" max="500000" step="1000" value="75000" class="slider" aria-label="Scenario B salary slider">
+                                <input id="b-income-input" type="number" min="0" step="1000" value="75000" class="number-input" inputmode="numeric">
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label for="b-deductions-input" class="control-label">Other deductions from income (optional, e.g. RRSP contributions)</label>
+                            <div class="input-row">
+                                <input id="b-deductions-slider" type="range" min="0" max="100000" step="500" value="0" class="slider" aria-label="Scenario B deductions slider">
+                                <input id="b-deductions-input" type="number" min="0" step="500" value="0" class="number-input" inputmode="numeric">
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div id="tax-bar-container" class="tax-bar-container">
-                    <div id="bar-take-home" class="tax-bar bar-take-home" title="Take-Home Pay"></div>
-                    <div id="bar-federal" class="tax-bar bar-federal" title="Federal Tax"></div>
-                    <div id="bar-state" class="tax-bar bar-state" title="Maryland State Tax"></div>
-                    <div id="bar-county" class="tax-bar bar-county" title="Anne Arundel County Tax"></div>
-                </div>
-                <!-- Legend -->
-                <div class="legend">
-                    <div class="legend-item"><span class="legend-color" style="background-color: #10b981;"></span>Take-Home</div>
-                    <div class="legend-item"><span class="legend-color" style="background-color: #3b82f6;"></span>Federal Tax</div>
-                    <div class="legend-item"><span class="legend-color" style="background-color: #eab308;"></span>Maryland State Tax</div>
-                    <div class="legend-item"><span class="legend-color" style="background-color: #a855f7;"></span>Anne Arundel County Tax</div>
-                </div>
+
+                <label class="compare-toggle-row">
+                    <input id="compare-toggle" type="checkbox" checked>
+                    <span>Compare with a second scenario (B)</span>
+                </label>
+                <p class="note-text">Single filer, employment income only. Refundable credits and benefits (GST/HST credit, Canada Workers Benefit, provincial benefits) are not included, so take-home pay is understated at low incomes.</p>
+                <button id="setup-to-output" type="button" class="primary-button">See take-home pay</button>
             </div>
 
-            <!-- RESULTS & BREAKDOWN SECTION -->
-            <div>
-                <h2 class="section-heading" style="text-align: center;">Tax Summary</h2>
-                
-                <!-- Tax Summary Grid -->
-                <div class="summary-grid">
-                    <!-- Federal Tax Summary -->
-                    <div class="summary-card federal-summary">
-                        <h3 class="summary-title federal-title">Federal Taxes</h3>
-                        <div>
-                            <div class="summary-row">
-                                <span class="summary-label">Federal AGI:</span>
-                                <span id="federal-agi-summary" class="summary-value">$0</span>
-                            </div>
-                            <div class="summary-row">
-                                <span class="summary-label">Taxable Income:</span>
-                                <span id="federal-taxable-summary" class="summary-value">$0</span>
-                            </div>
-                            <div class="summary-row summary-divider" style="border-color: #bfdbfe;">
-                                <span class="summary-label" style="font-weight: 500;">Federal Tax:</span>
-                                <span id="federal-tax-summary" class="summary-value federal-title">$0</span>
-                            </div>
-                            <div class="summary-row">
-                                <span class="summary-label">Effective Tax Rate (from gross):</span>
-                                <span id="federal-rate-summary" class="summary-value">0.00%</span>
-                            </div>
-                        </div>
+            <!-- TAB: OUTPUT -->
+            <div id="output-content" class="tab-content" role="tabpanel">
+                <p class="edit-inputs-row"><button id="out-edit-inputs" type="button" class="link-button">&larr; Edit inputs</button></p>
+                <div class="headline-grid">
+                    <div class="headline-card headline-a">
+                        <p id="out-a-label" class="headline-label">Scenario A</p>
+                        <p id="out-a-take-home" class="headline-value">-</p>
+                        <p class="headline-sub"><span id="out-a-take-home-month">-</span> a month</p>
                     </div>
+                    <div id="out-b-headline" class="headline-card headline-b">
+                        <p id="out-b-label" class="headline-label">Scenario B</p>
+                        <p id="out-b-take-home" class="headline-value">-</p>
+                        <p class="headline-sub"><span id="out-b-take-home-month">-</span> a month</p>
+                    </div>
+                    <div id="out-diff-headline" class="headline-card headline-diff">
+                        <p class="headline-label">Difference (B − A)</p>
+                        <p id="out-diff-take-home" class="headline-value">-</p>
+                        <p class="headline-sub"><span id="out-diff-take-home-month">-</span> a month</p>
+                    </div>
+                    <p id="out-diff-sentence" class="diff-sentence">-</p>
+                </div>
+                <p class="note-text estimate-line">Estimate for the 2026 tax year, not financial, tax or legal advice; verify against the official sources linked under each rate.</p>
 
-                    <!-- State Tax Summary -->
-                    <div class="summary-card state-summary">
-                        <h3 class="summary-title state-title">Maryland State Taxes</h3>
-                        <div>
-                            <div class="summary-row">
-                                <span class="summary-label">Maryland AGI:</span>
-                                <span id="state-agi-summary" class="summary-value">$0</span>
-                            </div>
-                            <div class="summary-row">
-                                <span class="summary-label">Taxable Income:</span>
-                                <span id="state-taxable-summary" class="summary-value">$0</span>
-                            </div>
-                            <div class="summary-row summary-divider" style="border-color: #bbf7d0;">
-                                <span class="summary-label" style="font-weight: 500;">State Tax:</span>
-                                <span id="state-tax-summary" class="summary-value state-title">$0</span>
-                            </div>
-                            <div class="summary-row">
-                                <span class="summary-label">County Tax:</span>
-                                <span id="county-tax-summary" class="summary-value" style="color: #7c3aed;">$0</span>
-                            </div>
-                            <div class="summary-row">
-                                <span class="summary-label">Combined Effective Tax Rate (from gross):</span>
-                                <span id="state-rate-summary" class="summary-value">0.00%</span>
-                            </div>
-                        </div>
+                <div class="visualization-section">
+                    <h2 class="section-heading">Where each salary goes</h2>
+                    <div id="out-bars" class="bars-stack"></div>
+                    <div class="legend">
+                        <div class="legend-item"><span class="legend-color bar-take-home"></span>Take-home</div>
+                        <div class="legend-item"><span class="legend-color bar-federal"></span>Federal tax</div>
+                        <div class="legend-item"><span class="legend-color bar-provincial"></span><span id="out-legend-provincial">Provincial or territorial tax</span></div>
+                        <div class="legend-item"><span class="legend-color bar-payroll"></span>Payroll contributions</div>
                     </div>
                 </div>
 
-                <!-- Total Summary -->
-                <div class="total-summary">
-                    <h3 class="section-heading" style="text-align: center; margin-bottom: 1rem;">Total Tax Summary</h3>
-                    <div class="total-grid">
-                        <div class="total-item">
-                            <p class="total-label">Total Federal</p>
-                            <p id="total-federal-display" class="total-value" style="color: #2563eb;">$0</p>
-                        </div>
-                        <div class="total-item">
-                            <p class="total-label">Total State</p>
-                            <p id="total-state-display" class="total-value" style="color: #16a34a;">$0</p>
-                        </div>
-                        <div class="total-item">
-                            <p class="total-label">Total County</p>
-                            <p id="total-county-display" class="total-value" style="color: #9333ea;">$0</p>
-                        </div>
-                        <div class="total-item">
-                            <p class="total-label">All Taxes</p>
-                            <p id="total-all-taxes-display" class="total-value">$0</p>
-                        </div>
-                    </div>
-                    <div class="total-main">
-                        <div class="total-main-item">
-                            <p class="total-label">Take-Home Pay</p>
-                            <p id="total-take-home-display" class="total-main-value" style="color: #059669;">$0</p>
-                        </div>
-                        <div class="total-main-item">
-                            <p class="total-label">Total Effective Rate</p>
-                            <p id="total-effective-rate-display" class="total-main-value">0.00%</p>
-                        </div>
+                <div class="bracket-table-container compare-table-container">
+                    <h3>Side by side</h3>
+                    <div class="table-wrapper">
+                        <table class="bracket-table compare-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Item</th>
+                                    <th id="out-th-a" scope="col">A</th>
+                                    <th id="out-th-b" scope="col">B</th>
+                                    <th id="out-th-diff" scope="col">B − A</th>
+                                </tr>
+                            </thead>
+                            <tbody id="out-table-body"></tbody>
+                        </table>
                     </div>
                 </div>
+                <p class="note-text">Marginal rate: tax on your next dollar of salary. Effective rate: share of your whole salary. The Federal, Provincial and Payroll math tabs show every step.</p>
+
+                <section class="verify-section" aria-labelledby="verify-heading">
+                    <h2 id="verify-heading" class="section-heading">Verify these numbers</h2>
+                    <p class="note-text">Every rate, threshold and amount here comes from the pages below, and each one is also linked next to the figure it supports. Open the official page and compare before you rely on a number. Some government sites block automated tools but open in a normal browser. Pages marked as cross-checks are third-party, not official.</p>
+                    <div id="verify-list" class="verify-grid"></div>
+                </section>
             </div>
-            </div>
 
-            <!-- TAB CONTENT: CUSTOM CALCULATION VIEW -->
-            <div id="custom-calc-content" class="tab-content">
-                <!-- VISUAL CALCULATIONS SECTION -->
-                <div class="calculation-section">
-                    <!-- Your Custom Calculation -->
-                    <div style="margin-bottom: 3rem;">
-                        <h2 class="section-heading" style="text-align: center;">Federal Tax Calculation</h2>
-                    
-                    <!-- Federal Custom Calculation Flow -->
-                    <div class="calculation-container">
-                        
-                        <!-- Step 1: Gross Income - Adjustments = AGI -->
-                        <div class="calc-step">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-gross-income">
-                                    <div class="calc-box-label">Gross Income</div>
-                                    <div id="visual-gross-income" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">−</div>
-                                <div class="calc-box calc-adjustments">
-                                    <div class="calc-box-label">Adjustments</div>
-                                    <div id="visual-adjustments" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-result concept-agi">
-                                    <div class="calc-box-label">AGI</div>
-                                    <div id="visual-agi" class="calc-box-value">$0</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Step 2: AGI - Deductions = Taxable Income -->
-                        <div class="calc-step">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-result concept-agi">
-                                    <div class="calc-box-label">AGI</div>
-                                    <div id="visual-agi-2" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">−</div>
-                                <div class="calc-box calc-deductions">
-                                    <div class="calc-box-label">Deductions</div>
-                                    <div id="visual-deductions" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-result concept-taxable-income">
-                                    <div class="calc-box-label">Taxable Income</div>
-                                    <div id="visual-taxable-income" class="calc-box-value">$0</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Step 3: Taxable Income × Effective Tax Rate = Tax Before Credits -->
-                        <div class="calc-step">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-result concept-taxable-income">
-                                    <div class="calc-box-label">Taxable Income</div>
-                                    <div id="visual-taxable-income-2" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">×</div>
-                                <div class="calc-box calc-tax-rate">
-                                    <div class="calc-box-label">Effective Tax Rate</div>
-                                    <div id="visual-tax-rate" class="calc-box-value">0.00%</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-pre-credit-tax">
-                                    <div class="calc-box-label">Tax Before Credits</div>
-                                    <div id="visual-pre-credit-tax" class="calc-box-value">$0</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Step 4: Tax Before Credits - Credits = Total Federal Tax -->
-                        <div class="calc-step">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-pre-credit-tax">
-                                    <div class="calc-box-label">Tax Before Credits</div>
-                                    <div id="visual-pre-credit-tax-2" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">−</div>
-                                <div class="calc-box calc-credits">
-                                    <div class="calc-box-label">Credits</div>
-                                    <div id="visual-credits" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-total-tax">
-                                    <div class="calc-box-label">Total Federal Tax</div>
-                                    <div id="visual-total-tax" class="calc-box-value">$0</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Step 5: Gross Income - Total Federal Tax = Final Take-Home Pay -->
-                        <div class="calc-step">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-gross-income">
-                                    <div class="calc-box-label">Gross Income</div>
-                                    <div id="visual-gross-income-2" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">−</div>
-                                <div class="calc-box calc-total-tax">
-                                    <div class="calc-box-label">Total Federal Tax</div>
-                                    <div id="visual-total-tax-2" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-take-home">
-                                    <div class="calc-box-label">Final Take-Home Pay</div>
-                                    <div id="visual-take-home" class="calc-box-value">$0</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Step 6: Total Federal Tax ÷ Gross Income = Effective Rate (on Gross) -->
-                        <div class="calc-step" style="border-top: 1px solid #e2e8f0; margin-top: 1rem; padding-top: 1rem;">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-total-tax">
-                                    <div class="calc-box-label">Total Federal Tax</div>
-                                    <div id="visual-total-tax-3" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">÷</div>
-                                <div class="calc-box calc-gross-income">
-                                    <div class="calc-box-label">Gross Income</div>
-                                    <div id="visual-gross-income-3" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-effective-rate">
-                                    <div class="calc-box-label">Effective Rate (on Gross)</div>
-                                    <div id="visual-effective-rate" class="calc-box-value">0.00%</div>
-                                </div>
-                            </div>
-                        </div>
+            <!-- TAB: ALL PROVINCES -->
+            <div id="provinces-content" class="tab-content" role="tabpanel">
+                <h2 id="provinces-title" class="section-heading">All provinces and territories</h2>
+                <div class="bracket-table-container">
+                    <div class="table-wrapper">
+                        <table id="provinces-table" class="bracket-table provinces-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col"><button type="button" class="sort-button" data-sort="name">Province or territory</button></th>
+                                    <th scope="col"><button type="button" class="sort-button" data-sort="incomeTax">Income tax</button></th>
+                                    <th scope="col"><button type="button" class="sort-button" data-sort="payroll">Payroll</button></th>
+                                    <th scope="col" aria-sort="descending"><button type="button" class="sort-button" data-sort="takeHome">Take-home</button></th>
+                                    <th scope="col"><button type="button" class="sort-button" data-sort="effectiveRate">Effective rate</button></th>
+                                    <th scope="col"><button type="button" class="sort-button" data-sort="marginalRate">Marginal rate</button></th>
+                                </tr>
+                            </thead>
+                            <tbody id="provinces-table-body"></tbody>
+                        </table>
                     </div>
                 </div>
+                <p class="note-text">Same salary and deductions as Scenario A in every province and territory. Quebec uses QPP, QPIP and the Quebec EI rate. Effective rate includes payroll; marginal rate is income tax only. Click a column heading to sort.</p>
 
-                <!-- Baseline Comparison -->
-                <div style="margin-bottom: 2rem;">
-                    <h2 class="section-heading" style="text-align: center;">Baseline Comparison</h2>
-                    <p style="color: #64748b; text-align: center; margin-bottom: 1.5rem;">Your gross income with $0 adjustments, $0 credits, and the standard deduction.</p>
-                    
-                    <!-- Federal Baseline Calculation Flow -->
-                    <div class="calculation-container">
-                        <h3 class="calculation-title">Federal Tax Calculation</h3>
-                        
-                        <!-- Step 1: Gross Income - Adjustments = AGI -->
-                        <div class="calc-step">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-gross-income">
-                                    <div class="calc-box-label">Gross Income</div>
-                                    <div id="baseline-gross-income" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">−</div>
-                                <div class="calc-box calc-adjustments">
-                                    <div class="calc-box-label">Adjustments</div>
-                                    <div id="baseline-adjustments" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-result concept-agi">
-                                    <div class="calc-box-label">AGI</div>
-                                    <div id="baseline-agi" class="calc-box-value">$0</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Step 2: AGI - Deductions = Taxable Income -->
-                        <div class="calc-step">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-result concept-agi">
-                                    <div class="calc-box-label">AGI</div>
-                                    <div id="baseline-agi-2" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">−</div>
-                                <div class="calc-box calc-deductions">
-                                    <div class="calc-box-label">Deductions</div>
-                                    <div id="baseline-deductions" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-result concept-taxable-income">
-                                    <div class="calc-box-label">Taxable Income</div>
-                                    <div id="baseline-taxable-income" class="calc-box-value">$0</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Step 3: Taxable Income × Effective Tax Rate = Tax Before Credits -->
-                        <div class="calc-step">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-result concept-taxable-income">
-                                    <div class="calc-box-label">Taxable Income</div>
-                                    <div id="baseline-taxable-income-2" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">×</div>
-                                <div class="calc-box calc-tax-rate">
-                                    <div class="calc-box-label">Effective Tax Rate</div>
-                                    <div id="baseline-tax-rate" class="calc-box-value">0.00%</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-pre-credit-tax">
-                                    <div class="calc-box-label">Tax Before Credits</div>
-                                    <div id="baseline-pre-credit-tax" class="calc-box-value">$0</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Step 4: Tax Before Credits - Credits = Total Federal Tax -->
-                        <div class="calc-step">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-pre-credit-tax">
-                                    <div class="calc-box-label">Tax Before Credits</div>
-                                    <div id="baseline-pre-credit-tax-2" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">−</div>
-                                <div class="calc-box calc-credits">
-                                    <div class="calc-box-label">Credits</div>
-                                    <div id="baseline-credits" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-total-tax">
-                                    <div class="calc-box-label">Total Federal Tax</div>
-                                    <div id="baseline-total-tax" class="calc-box-value">$0</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Step 5: Gross Income - Total Federal Tax = Final Take-Home Pay -->
-                        <div class="calc-step">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-gross-income">
-                                    <div class="calc-box-label">Gross Income</div>
-                                    <div id="baseline-gross-income-2" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">−</div>
-                                <div class="calc-box calc-total-tax">
-                                    <div class="calc-box-label">Total Federal Tax</div>
-                                    <div id="baseline-total-tax-2" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-take-home">
-                                    <div class="calc-box-label">Final Take-Home Pay</div>
-                                    <div id="baseline-take-home" class="calc-box-value">$0</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Step 6: Total Federal Tax ÷ Gross Income = Effective Rate (on Gross) -->
-                        <div class="calc-step" style="border-top: 1px solid #e2e8f0; margin-top: 1rem; padding-top: 1rem;">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-total-tax">
-                                    <div class="calc-box-label">Total Federal Tax</div>
-                                    <div id="baseline-total-tax-3" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">÷</div>
-                                <div class="calc-box calc-gross-income">
-                                    <div class="calc-box-label">Gross Income</div>
-                                    <div id="baseline-gross-income-3" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-effective-rate">
-                                    <div class="calc-box-label">Effective Rate (on Gross)</div>
-                                    <div id="baseline-effective-rate" class="calc-box-value">0.00%</div>
-                                </div>
-                            </div>
-                        </div>
+                <div class="bracket-table-container">
+                    <h3>Sales tax (cost-of-living context)</h3>
+                    <div class="table-wrapper">
+                        <table class="bracket-table sales-tax-table">
+                            <thead>
+                                <tr><th scope="col">Province or territory</th><th scope="col">GST</th><th scope="col">PST / QST</th><th scope="col">HST</th><th scope="col">Combined</th><th scope="col">Basis</th></tr>
+                            </thead>
+                            <tbody id="sales-tax-body"></tbody>
+                        </table>
                     </div>
                 </div>
+                <p class="note-text">General rates on most purchases; some goods are exempt or taxed differently. Hover a Basis cell for the full note. No spending model is applied.</p>
             </div>
-            </div>
+            <!-- TAB: FEDERAL TAX MATH -->
+            <div id="federal-math-content" class="tab-content" role="tabpanel">
+                <div class="math-section">
+                    <h2 id="fed-math-title" class="section-heading">Federal tax math</h2>
+                    <div id="fed-flags" class="flag-note hidden"></div>
+                    <div id="fed-steps" class="calculation-container"></div>
 
-            <!-- TAB CONTENT: MARYLAND CALCULATION VIEW -->
-            <div id="maryland-calc-content" class="tab-content">
-                <!-- MARYLAND VISUAL CALCULATIONS SECTION -->
-                <div class="calculation-section">
-                    <!-- Your Custom Maryland Calculation -->
-                    <div style="margin-bottom: 3rem;">
-                        <h2 class="section-heading" style="text-align: center;">Maryland State Tax Calculation</h2>
-                    
-                    <!-- Maryland Custom Calculation Flow -->
-                    <div class="calculation-container">
-                        
-                        <!-- Step 1: Gross Income - Adjustments = AGI -->
-                        <div class="calc-step">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-gross-income">
-                                    <div class="calc-box-label">Gross Income</div>
-                                    <div id="maryland-visual-gross-income" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">−</div>
-                                <div class="calc-box calc-adjustments">
-                                    <div class="calc-box-label">Adjustments</div>
-                                    <div id="maryland-visual-adjustments" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-result concept-agi">
-                                    <div class="calc-box-label">AGI</div>
-                                    <div id="maryland-visual-agi" class="calc-box-value">$0</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Step 2: AGI - Deductions = Taxable Income -->
-                        <div class="calc-step">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-result concept-agi">
-                                    <div class="calc-box-label">AGI</div>
-                                    <div id="maryland-visual-agi-2" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">−</div>
-                                <div class="calc-box calc-deductions">
-                                    <div class="calc-box-label">Deductions</div>
-                                    <div id="maryland-visual-deductions" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-result concept-taxable-income">
-                                    <div class="calc-box-label">Taxable Income</div>
-                                    <div id="maryland-visual-taxable-income" class="calc-box-value">$0</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Step 3: Taxable Income × Maryland State Tax Rate = Maryland State Tax Before Credits -->
-                        <div class="calc-step">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-result concept-taxable-income">
-                                    <div class="calc-box-label">Taxable Income</div>
-                                    <div id="maryland-visual-taxable-income-2" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">×</div>
-                                <div class="calc-box calc-maryland-state-tax-rate">
-                                    <div class="calc-box-label">Maryland State Tax Rate</div>
-                                    <div id="maryland-visual-state-tax-rate" class="calc-box-value">0.00%</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-maryland-state-tax-before-credits">
-                                    <div class="calc-box-label">Maryland State Tax Before Credits</div>
-                                    <div id="maryland-visual-state-pre-credit-tax" class="calc-box-value">$0</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Step 4: Taxable Income × Anne Arundel County Tax Rate = Anne Arundel County Tax -->
-                        <div class="calc-step">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-result concept-taxable-income">
-                                    <div class="calc-box-label">Taxable Income</div>
-                                    <div id="maryland-visual-taxable-income-3" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">×</div>
-                                <div class="calc-box calc-anne-arundel-county-tax-rate">
-                                    <div class="calc-box-label">Anne Arundel County Tax Rate</div>
-                                    <div id="maryland-visual-county-tax-rate" class="calc-box-value">0.00%</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-anne-arundel-county-tax">
-                                    <div class="calc-box-label">Anne Arundel County Tax</div>
-                                    <div id="maryland-visual-county-tax" class="calc-box-value">$0</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Step 5: Maryland State Tax Before Credits - Credits = Total Maryland State Tax -->
-                        <div class="calc-step">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-maryland-state-tax-before-credits">
-                                    <div class="calc-box-label">Maryland State Tax Before Credits</div>
-                                    <div id="maryland-visual-state-pre-credit-tax-2" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">−</div>
-                                <div class="calc-box calc-credits">
-                                    <div class="calc-box-label">Credits</div>
-                                    <div id="maryland-visual-credits" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-maryland-total-state-tax">
-                                    <div class="calc-box-label">Total Maryland State Tax</div>
-                                    <div id="maryland-visual-total-state-tax" class="calc-box-value">$0</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Step 6: Total Maryland State Tax + Anne Arundel County Tax = Combined Maryland Tax -->
-                        <div class="calc-step">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-maryland-total-state-tax">
-                                    <div class="calc-box-label">Total Maryland State Tax</div>
-                                    <div id="maryland-visual-total-state-tax-2" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">+</div>
-                                <div class="calc-box calc-anne-arundel-county-tax">
-                                    <div class="calc-box-label">Anne Arundel County Tax</div>
-                                    <div id="maryland-visual-county-tax-2" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-combined-maryland-tax">
-                                    <div class="calc-box-label">Combined Maryland Tax</div>
-                                    <div id="maryland-visual-combined-tax" class="calc-box-value">$0</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Step 7: Gross Income - Combined Maryland Tax = Take-Home Pay -->
-                        <div class="calc-step">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-gross-income">
-                                    <div class="calc-box-label">Gross Income</div>
-                                    <div id="maryland-visual-gross-income-2" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">−</div>
-                                <div class="calc-box calc-combined-maryland-tax">
-                                    <div class="calc-box-label">Combined Maryland Tax</div>
-                                    <div id="maryland-visual-combined-tax-2" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-take-home">
-                                    <div class="calc-box-label">Final Take-Home Pay</div>
-                                    <div id="maryland-visual-take-home" class="calc-box-value">$0</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Step 8: Combined Maryland Tax ÷ Gross Income = Effective Rate (on Gross) -->
-                        <div class="calc-step" style="border-top: 1px solid #e2e8f0; margin-top: 1rem; padding-top: 1rem;">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-combined-maryland-tax">
-                                    <div class="calc-box-label">Combined Maryland Tax</div>
-                                    <div id="maryland-visual-combined-tax-3" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">÷</div>
-                                <div class="calc-box calc-gross-income">
-                                    <div class="calc-box-label">Gross Income</div>
-                                    <div id="maryland-visual-gross-income-3" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-effective-rate">
-                                    <div class="calc-box-label">Effective Rate (on Gross)</div>
-                                    <div id="maryland-visual-effective-rate" class="calc-box-value">0.00%</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Maryland Baseline Comparison -->
-                <div style="margin-bottom: 2rem;">
-                    <h2 class="section-heading" style="text-align: center;">Baseline Comparison</h2>
-                    <p style="color: #64748b; text-align: center; margin-bottom: 1.5rem;">Your gross income with $0 adjustments, $0 credits, and the standard deduction.</p>
-                    
-                    <!-- Maryland Baseline Calculation Flow -->
-                    <div class="calculation-container">
-                        <h3 class="calculation-title">Maryland State Tax Calculation</h3>
-                        
-                        <!-- Step 1: Gross Income - Adjustments = AGI -->
-                        <div class="calc-step">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-gross-income">
-                                    <div class="calc-box-label">Gross Income</div>
-                                    <div id="maryland-baseline-gross-income" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">−</div>
-                                <div class="calc-box calc-adjustments">
-                                    <div class="calc-box-label">Adjustments</div>
-                                    <div id="maryland-baseline-adjustments" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-result concept-agi">
-                                    <div class="calc-box-label">AGI</div>
-                                    <div id="maryland-baseline-agi" class="calc-box-value">$0</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Step 2: AGI - Deductions = Taxable Income -->
-                        <div class="calc-step">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-result concept-agi">
-                                    <div class="calc-box-label">AGI</div>
-                                    <div id="maryland-baseline-agi-2" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">−</div>
-                                <div class="calc-box calc-deductions">
-                                    <div class="calc-box-label">Deductions</div>
-                                    <div id="maryland-baseline-deductions" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-result concept-taxable-income">
-                                    <div class="calc-box-label">Taxable Income</div>
-                                    <div id="maryland-baseline-taxable-income" class="calc-box-value">$0</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Step 3: Taxable Income × Maryland State Tax Rate = Maryland State Tax Before Credits -->
-                        <div class="calc-step">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-result concept-taxable-income">
-                                    <div class="calc-box-label">Taxable Income</div>
-                                    <div id="maryland-baseline-taxable-income-2" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">×</div>
-                                <div class="calc-box calc-maryland-state-tax-rate">
-                                    <div class="calc-box-label">Maryland State Tax Rate</div>
-                                    <div id="maryland-baseline-state-tax-rate" class="calc-box-value">0.00%</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-maryland-state-tax-before-credits">
-                                    <div class="calc-box-label">Maryland State Tax Before Credits</div>
-                                    <div id="maryland-baseline-state-pre-credit-tax" class="calc-box-value">$0</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Step 4: Taxable Income × Anne Arundel County Tax Rate = Anne Arundel County Tax -->
-                        <div class="calc-step">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-result concept-taxable-income">
-                                    <div class="calc-box-label">Taxable Income</div>
-                                    <div id="maryland-baseline-taxable-income-3" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">×</div>
-                                <div class="calc-box calc-anne-arundel-county-tax-rate">
-                                    <div class="calc-box-label">Anne Arundel County Tax Rate</div>
-                                    <div id="maryland-baseline-county-tax-rate" class="calc-box-value">0.00%</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-anne-arundel-county-tax">
-                                    <div class="calc-box-label">Anne Arundel County Tax</div>
-                                    <div id="maryland-baseline-county-tax" class="calc-box-value">$0</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Step 5: Maryland State Tax Before Credits - Credits = Total Maryland State Tax -->
-                        <div class="calc-step">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-maryland-state-tax-before-credits">
-                                    <div class="calc-box-label">Maryland State Tax Before Credits</div>
-                                    <div id="maryland-baseline-state-pre-credit-tax-2" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">−</div>
-                                <div class="calc-box calc-credits">
-                                    <div class="calc-box-label">Credits</div>
-                                    <div id="maryland-baseline-credits" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-maryland-total-state-tax">
-                                    <div class="calc-box-label">Total Maryland State Tax</div>
-                                    <div id="maryland-baseline-total-state-tax" class="calc-box-value">$0</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Step 6: Total Maryland State Tax + Anne Arundel County Tax = Combined Maryland Tax -->
-                        <div class="calc-step">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-maryland-total-state-tax">
-                                    <div class="calc-box-label">Total Maryland State Tax</div>
-                                    <div id="maryland-baseline-total-state-tax-2" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">+</div>
-                                <div class="calc-box calc-anne-arundel-county-tax">
-                                    <div class="calc-box-label">Anne Arundel County Tax</div>
-                                    <div id="maryland-baseline-county-tax-2" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-combined-maryland-tax">
-                                    <div class="calc-box-label">Combined Maryland Tax</div>
-                                    <div id="maryland-baseline-combined-tax" class="calc-box-value">$0</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Step 7: Gross Income - Combined Maryland Tax = Take-Home Pay -->
-                        <div class="calc-step">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-gross-income">
-                                    <div class="calc-box-label">Gross Income</div>
-                                    <div id="maryland-baseline-gross-income-2" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">−</div>
-                                <div class="calc-box calc-combined-maryland-tax">
-                                    <div class="calc-box-label">Combined Maryland Tax</div>
-                                    <div id="maryland-baseline-combined-tax-2" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-take-home">
-                                    <div class="calc-box-label">Final Take-Home Pay</div>
-                                    <div id="maryland-baseline-take-home" class="calc-box-value">$0</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Step 8: Combined Maryland Tax ÷ Gross Income = Effective Rate (on Gross) -->
-                        <div class="calc-step" style="border-top: 1px solid #e2e8f0; margin-top: 1rem; padding-top: 1rem;">
-                            <div class="calc-step-mobile">
-                                <div class="calc-box calc-combined-maryland-tax">
-                                    <div class="calc-box-label">Combined Maryland Tax</div>
-                                    <div id="maryland-baseline-combined-tax-3" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">÷</div>
-                                <div class="calc-box calc-gross-income">
-                                    <div class="calc-box-label">Gross Income</div>
-                                    <div id="maryland-baseline-gross-income-3" class="calc-box-value">$0</div>
-                                </div>
-                                <div class="calc-operator">=</div>
-                                <div class="calc-box calc-effective-rate">
-                                    <div class="calc-box-label">Effective Rate (on Gross)</div>
-                                    <div id="maryland-baseline-effective-rate" class="calc-box-value">0.00%</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            </div>
-
-            <!-- TAB CONTENT: TAX BRACKET BREAKDOWN VIEW -->
-            <div id="bracket-breakdown-content" class="tab-content">
-                <div class="calculation-section">
-                    <div style="margin-bottom: 3rem;">
-                        <h2 class="section-heading" style="text-align: center;">Tax Bracket Breakdown</h2>
-                        <p style="text-align: center; color: var(--text-secondary); margin-bottom: 2rem;">
-                            See exactly how your income is taxed across different brackets
-                        </p>
-                    </div>
-
-                    <!-- Federal Tax Bracket Table -->
-                    <div class="bracket-table-container" style="margin-bottom: 3rem;">
-                        <h3 style="color: var(--federal-color); margin-bottom: 1rem;">Federal Tax Bracket Breakdown</h3>
+                    <div class="bracket-table-container federal-table">
+                        <h3>Deductions from income</h3>
                         <div class="table-wrapper">
-                            <table id="federal-bracket-table" class="bracket-table">
-                                <thead>
-                                    <tr>
-                                        <th>Lower Limit</th>
-                                        <th>Upper Limit</th>
-                                        <th>Rate</th>
-                                        <th>Income Remaining</th>
-                                        <th>Tax Income in Bracket</th>
-                                        <th>Tax Amount</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <!-- Federal bracket rows will be populated here -->
-                                </tbody>
-                                <tfoot>
-                                    <tr class="total-row">
-                                        <td colspan="4"><strong>TOTALS</strong></td>
-                                        <td id="federal-total-income"><strong>$0</strong></td>
-                                        <td id="federal-total-tax"><strong>$0</strong></td>
-                                    </tr>
-                                </tfoot>
+                            <table class="bracket-table">
+                                <thead><tr><th>Deduction</th><th>Amount</th></tr></thead>
+                                <tbody id="fed-deductions-table"></tbody>
+                                <tfoot><tr class="total-row"><td><strong>Total</strong></td><td id="fed-deductions-total">-</td></tr></tfoot>
                             </table>
                         </div>
                     </div>
 
-                    <!-- Maryland Tax Bracket Table -->
-                    <div class="bracket-table-container" style="margin-bottom: 3rem;">
-                        <h3 style="color: var(--state-color); margin-bottom: 1rem;">Maryland Tax Bracket Breakdown</h3>
+                    <div class="bracket-table-container federal-table">
+                        <h3>Federal tax brackets</h3>
                         <div class="table-wrapper">
-                            <table id="maryland-bracket-table" class="bracket-table">
-                                <thead>
-                                    <tr>
-                                        <th>Lower Limit</th>
-                                        <th>Upper Limit</th>
-                                        <th>Rate</th>
-                                        <th>Income Remaining</th>
-                                        <th>Tax Income in Bracket</th>
-                                        <th>Tax Amount</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <!-- Maryland bracket rows will be populated here -->
-                                </tbody>
-                                <tfoot>
-                                    <tr class="total-row">
-                                        <td colspan="4"><strong>TOTALS</strong></td>
-                                        <td id="maryland-total-income"><strong>$0</strong></td>
-                                        <td id="maryland-total-tax"><strong>$0</strong></td>
-                                    </tr>
-                                </tfoot>
+                            <table class="bracket-table">
+                                <thead><tr><th>From</th><th>To</th><th>Rate</th><th>Income in bracket</th><th>Tax</th></tr></thead>
+                                <tbody id="fed-bracket-table"></tbody>
+                                <tfoot><tr class="total-row"><td colspan="3"><strong>Totals</strong></td><td id="fed-bracket-total-income">-</td><td id="fed-bracket-total-tax">-</td></tr></tfoot>
                             </table>
                         </div>
                     </div>
 
-                    <!-- Anne Arundel County Tax Bracket Table -->
-                    <div class="bracket-table-container" style="margin-bottom: 3rem;">
-                        <h3 style="color: var(--county-color); margin-bottom: 1rem;">Anne Arundel Tax Bracket Breakdown</h3>
+                    <div class="bracket-table-container federal-table">
+                        <h3>Non-refundable tax credits</h3>
                         <div class="table-wrapper">
-                            <table id="anne-arundel-bracket-table" class="bracket-table">
-                                <thead>
-                                    <tr>
-                                        <th>Lower Limit</th>
-                                        <th>Upper Limit</th>
-                                        <th>Rate</th>
-                                        <th>Income Remaining</th>
-                                        <th>Tax Income in Bracket</th>
-                                        <th>Tax Amount</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <!-- Anne Arundel bracket rows will be populated here -->
-                                </tbody>
-                                <tfoot>
-                                    <tr class="total-row">
-                                        <td colspan="4"><strong>TOTALS</strong></td>
-                                        <td id="anne-arundel-total-income"><strong>$0</strong></td>
-                                        <td id="anne-arundel-total-tax"><strong>$0</strong></td>
-                                    </tr>
-                                </tfoot>
+                            <table class="bracket-table">
+                                <thead><tr><th>Credit</th><th>Amount</th><th>Rate</th><th>Credit</th></tr></thead>
+                                <tbody id="fed-credits-table"></tbody>
+                                <tfoot><tr class="total-row"><td colspan="3"><strong>Total credits</strong></td><td id="fed-credits-total">-</td></tr></tfoot>
                             </table>
                         </div>
                     </div>
+
+                    <div id="fed-extras"></div>
+
+                    <div class="total-summary">
+                        <div class="total-main">
+                            <div class="total-main-item">
+                                <p class="total-label">Federal tax</p>
+                                <p id="fed-net-tax" class="total-main-value federal-title">-</p>
+                            </div>
+                            <div class="total-main-item">
+                                <p class="total-label">Federal marginal rate</p>
+                                <p id="fed-marginal-rate" class="total-main-value">-</p>
+                            </div>
+                        </div>
+                    </div>
+                    <details class="sources-box">
+                        <summary>Sources for the federal values</summary>
+                        <ul id="fed-sources" class="sources-list"></ul>
+                    </details>
                 </div>
             </div>
 
+            <!-- TAB: PROVINCIAL TAX MATH -->
+            <div id="provincial-math-content" class="tab-content" role="tabpanel">
+                <div class="math-section">
+                    <h2 id="prov-math-title" class="section-heading">Provincial tax math</h2>
+                    <div id="prov-flags" class="flag-note hidden"></div>
+                    <div id="prov-steps" class="calculation-container provincial-container"></div>
+
+                    <div class="bracket-table-container provincial-table">
+                        <h3>Deductions from income</h3>
+                        <div class="table-wrapper">
+                            <table class="bracket-table">
+                                <thead><tr><th>Deduction</th><th>Amount</th></tr></thead>
+                                <tbody id="prov-deductions-table"></tbody>
+                                <tfoot><tr class="total-row"><td><strong>Total</strong></td><td id="prov-deductions-total">-</td></tr></tfoot>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="bracket-table-container provincial-table">
+                        <h3>Tax brackets</h3>
+                        <div class="table-wrapper">
+                            <table class="bracket-table">
+                                <thead><tr><th>From</th><th>To</th><th>Rate</th><th>Income in bracket</th><th>Tax</th></tr></thead>
+                                <tbody id="prov-bracket-table"></tbody>
+                                <tfoot><tr class="total-row"><td colspan="3"><strong>Totals</strong></td><td id="prov-bracket-total-income">-</td><td id="prov-bracket-total-tax">-</td></tr></tfoot>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="bracket-table-container provincial-table">
+                        <h3>Non-refundable tax credits</h3>
+                        <div class="table-wrapper">
+                            <table class="bracket-table">
+                                <thead><tr><th>Credit</th><th>Amount</th><th>Rate</th><th>Credit</th></tr></thead>
+                                <tbody id="prov-credits-table"></tbody>
+                                <tfoot><tr class="total-row"><td colspan="3"><strong>Total credits</strong></td><td id="prov-credits-total">-</td></tr></tfoot>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="prov-extras"></div>
+
+                    <div class="total-summary">
+                        <div class="total-main">
+                            <div class="total-main-item">
+                                <p class="total-label">Provincial or territorial tax</p>
+                                <p id="prov-net-tax" class="total-main-value provincial-title">-</p>
+                            </div>
+                            <div class="total-main-item">
+                                <p class="total-label">Provincial marginal rate</p>
+                                <p id="prov-marginal-rate" class="total-main-value">-</p>
+                            </div>
+                        </div>
+                    </div>
+                    <details class="sources-box">
+                        <summary>Sources for the provincial values</summary>
+                        <ul id="prov-sources" class="sources-list"></ul>
+                    </details>
+                </div>
+            </div>
+
+            <!-- TAB: PAYROLL MATH -->
+            <div id="payroll-math-content" class="tab-content" role="tabpanel">
+                <div class="math-section">
+                    <h2 id="payroll-math-title" class="section-heading">Payroll math</h2>
+                    <div id="payroll-flags" class="flag-note hidden"></div>
+                    <div id="payroll-steps" class="calculation-container payroll-container"></div>
+                    <div class="total-summary">
+                        <div class="total-main">
+                            <div class="total-main-item">
+                                <p class="total-label">Total payroll contributions</p>
+                                <p id="payroll-total" class="total-main-value payroll-title">-</p>
+                            </div>
+                            <div class="total-main-item">
+                                <p class="total-label">Payroll marginal rate</p>
+                                <p id="payroll-marginal-rate" class="total-main-value">-</p>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="note-text">Employee share only, one employer, full year. Enhanced CPP/QPP and CPP2/QPP2 contributions are deducted from income; base contributions and EI/QPIP premiums are claimed as credits where the jurisdiction allows.</p>
+                    <details class="sources-box">
+                        <summary>Sources for the payroll values</summary>
+                        <ul id="payroll-sources" class="sources-list"></ul>
+                    </details>
+                </div>
+            </div>
         </main>
 
-        <!-- Legal Disclaimer -->
         <footer class="disclaimer-section">
             <div class="disclaimer-content">
                 <p class="disclaimer-text">
-                    <strong>Disclaimer:</strong> This tool is for educational and informational purposes only. The calculations and tax information provided are not professional tax advice and should not be considered as such. This tool was created for personal learning and understanding. For official tax advice, please consult a qualified tax professional, certified public accountant (CPA), or the appropriate tax authorities. The accuracy of calculations cannot be guaranteed, and users are responsible for verifying all tax-related information with official sources.
+                    <strong>Estimates only.</strong> This tool estimates 2026 Canadian income tax, CPP/QPP, EI and QPIP/RQAP using published rates, and the
+                    figures are current as of <span id="footer-as-of">-</span>. It is not financial, tax or legal advice, and it does not file
+                    or replace a tax return. Some values are provisional, and the Tax math tabs mark them. It is an independent project: it is not
+                    affiliated with or endorsed by the Canada Revenue Agency, Revenu Québec, Retraite Québec or any federal, provincial or
+                    territorial government. Check the official sources linked on this page, or ask a qualified professional, before you
+                    rely on a number. The amounts you enter stay in your browser and are not sent to any server; the page stores only your
+                    light/dark theme choice, and it makes no third-party requests.
                 </p>
             </div>
         </footer>
     </div>
 
-    <!-- Import the main calculator application -->
     <script type="module" src="js/main.js"></script>
-
 </body>
 </html>

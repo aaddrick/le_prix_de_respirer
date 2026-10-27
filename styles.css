@@ -1,1912 +1,607 @@
-/**
- * Mobile-First Responsive CSS for Tax Calculator
- * Replacing Tailwind CDN with local styles optimized for mobile devices
- */
+/* ============================================================
+   Canadian income tax calculator, 2026
+   Visual system: "Broadside Night" (the author's aaddrick.com design system).
+   Poster type (Anton) for titles, names and numbers; Work Sans for reading;
+   the system monospace for table figures and field names. One cobalt accent.
+   Square corners, 3px structural rules, 1px hairlines, no shadows or gradients.
+   Fonts are self-hosted in fonts/ (SIL OFL 1.1), so the page makes no
+   third-party requests. Light/dark: js/themeManager.js toggles class "dark"
+   on <html>; the tokens below are the only colours components use.
+   ============================================================ */
 
-/* Reset and base styles */
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
+@font-face { font-family: "Anton"; font-style: normal; font-weight: 400; font-display: swap; src: url("fonts/anton-400.woff2") format("woff2"); }
+@font-face { font-family: "Work Sans"; font-style: normal; font-weight: 400; font-display: swap; src: url("fonts/work-sans-400.woff2") format("woff2"); }
+@font-face { font-family: "Work Sans"; font-style: normal; font-weight: 600; font-display: swap; src: url("fonts/work-sans-600.woff2") format("woff2"); }
+
+/* ============================================================
+   TOKENS
+   ============================================================ */
+:root {
+  --poster: "Anton", Impact, "Arial Narrow", sans-serif;
+  --font:   "Work Sans", "Helvetica Neue", Arial, sans-serif;
+  --mono:   ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --bg:             #ffffff;
+  --text:           #0f1115;
+  --text-secondary: #5d636e;
+  --rule:           #0f1115;   /* heavy structural rules, input borders */
+  --border:         #d9dbe0;   /* hairlines */
+  --surface:        #f3f4f7;   /* fields, table hover, bar track */
+  --accent:         #2340b8;   /* the one accent: links, kickers, numbers */
+  --block:          #2340b8;   /* solid accent blocks */
+  --on-block:       #ffffff;
+  --ink-block:      #0f1115;   /* loss band: an ink block, not red */
+  --on-ink-block:   #f0efe9;
+
+  /* Muted hues: badges, flags, bars and the difference colour only */
+  --c-teal:  #0f7a74;  --t-teal:  #e8f5f3;
+  --c-green: #23794a;  --t-green: #eaf5ee;
+  --c-amber: #965808;  --t-amber: #fbf2e3;   /* darker than the reference #a3610a to meet WCAG AA 4.5:1 on its tint */
+  --c-red:   #b3261e;  --t-red:   #fcecea;
+  --on-hue:  #ffffff;                         /* text on a solid hue segment */
+
+  --edge: clamp(20px, 4vw, 56px);
+  --page-max: 1320px;
+
+  color-scheme: light;
 }
 
-html {
-    font-size: 16px; /* Base font size for mobile */
+:root.dark {
+  --bg:             #0d0e11;
+  --text:           #f0efe9;
+  --text-secondary: #9a9ca3;
+  --rule:           #f0efe9;
+  --border:         #2a2d34;
+  --surface:        #17191e;
+  --accent:         #8fa3ff;
+  --block:          #3d5cff;
+  --on-block:       #ffffff;
+  --ink-block:      #f0efe9;
+  --on-ink-block:   #0d0e11;
+
+  --c-teal:  #5fd0c4;  --t-teal:  #0f2523;
+  --c-green: #6fd38f;  --t-green: #12261a;
+  --c-amber: #f0b356;  --t-amber: #2a2011;
+  --c-red:   #ff8a80;  --t-red:   #2c1513;
+  --on-hue:  #0d0e11;
+
+  color-scheme: dark;
 }
 
+/* ============================================================
+   BASE
+   ============================================================ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    line-height: 1.6;
-    color: #1e293b; /* slate-800 */
-    background-color: #f8fafc; /* slate-50 */
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    overflow-x: hidden;
+  font: 400 1rem/1.6 var(--font);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
 }
+a { color: var(--accent); text-underline-offset: 3px; }
+a:hover { text-decoration-thickness: 2px; }
+button { font: inherit; color: inherit; }
+code { font: 400 .86em/1.4 var(--mono); }
+strong { font-weight: 600; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hidden { display: none !important; }
 
-/* Container */
 .container {
-    width: 100%;
-    max-width: 672px; /* max-w-2xl */
-    margin: 0 auto;
-    padding: 1rem; /* p-4 */
+  max-width: calc(var(--page-max) + 2 * var(--edge));
+  margin: 0 auto;
+  padding-inline: var(--edge);
 }
 
-/* Header */
-.header {
-    text-align: center;
-    margin-bottom: 2rem; /* mb-8 */
-    position: relative;
+/* Shared type roles */
+.kicker, .math-switch-label {
+  font: 600 .8rem/1.2 var(--font);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--accent);
 }
+.section-heading {
+  font: 400 clamp(1.9rem, 3.4vw, 2.6rem)/1 var(--poster);
+  text-transform: uppercase;
+  letter-spacing: .005em;
+  margin: 0 0 1rem;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.note-text {
+  font-size: .85rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  margin: .8rem 0 1.4rem;
+  max-width: 52rem;
+}
+
+/* ============================================================
+   HEADER — kicker + theme toggle, poster title, lede
+   ============================================================ */
+.header { padding-block: 1.1rem 1.6rem; }
+.head-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.main-title {
+  font: 400 clamp(2.1rem, 6vw, 5.5rem)/.92 var(--poster);
+  text-transform: uppercase;
+  letter-spacing: -.005em;
+  margin-top: 1.2rem;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+.subtitle { font-size: 1.15rem; line-height: 1.5; max-width: 44rem; margin-top: 1rem; }
 
 .theme-toggle {
-    position: absolute;
-    top: 0;
-    right: 0;
-    padding: 0.5rem;
-    border-radius: 0.5rem;
-    background-color: #e2e8f0; /* slate-200 */
-    border: none;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.theme-toggle:hover {
-    background-color: #cbd5e1; /* slate-300 */
-}
-
-.theme-toggle svg {
-    width: 1.25rem;
-    height: 1.25rem;
-}
-
-.main-title {
-    font-size: 1.875rem; /* text-3xl */
-    font-weight: 700;
-    color: #0f172a; /* slate-900 */
-    margin-bottom: 0.5rem;
-}
-
-.subtitle {
-    color: #64748b; /* slate-600 */
-    font-size: 1rem;
-}
-
-/* Main content area */
-.main-content {
-    background-color: white;
-    padding: 1.5rem; /* p-6 */
-    border-radius: 1rem; /* rounded-2xl */
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    transition: all 0.3s;
-}
-
-/* Controls section */
-.controls-section {
-    margin-bottom: 2rem;
-}
-
-.control-group {
-    margin-bottom: 1.5rem;
-}
-
-.control-label {
-    display: block;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #374151; /* slate-700 */
-    margin-bottom: 0.5rem;
-}
-
-/* Filing status radio buttons */
-.filing-status {
-    display: flex;
-    gap: 1rem;
-    flex-wrap: wrap;
-}
-
-.filing-status label {
-    flex: 1;
-    min-width: 120px;
-}
-
-.filing-status input[type="radio"] {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
-}
-
-.filing-status-option {
-    width: 100%;
-    text-align: center;
-    padding: 0.75rem;
-    border-radius: 0.5rem;
-    cursor: pointer;
-    background-color: #f1f5f9; /* slate-100 */
-    color: #64748b; /* slate-600 */
-    transition: all 0.2s;
-    border: 2px solid transparent;
-    font-weight: 500;
-    min-height: 48px; /* Minimum touch target size */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.filing-status input[type="radio"]:checked + .filing-status-option {
-    background-color: #4f46e5; /* indigo-600 */
-    color: white;
-    border-color: #4f46e5;
-}
-
-/* Tax sections */
-.tax-section {
-    border: 2px solid;
-    border-radius: 0.5rem;
-    padding: 1rem;
-    margin-bottom: 1.5rem;
-}
-
-.federal-section {
-    border-color: #3b82f6; /* blue-500 - darker blue for better visibility */
-    border-width: 3px; /* increased thickness */
-}
-
-.state-section {
-    border-color: #bbf7d0; /* green-200 */
-}
-
-.section-title {
-    font-size: 1.125rem;
-    font-weight: 600;
-    margin-bottom: 1rem;
-}
-
-.federal-title {
-    color: #1e40af; /* blue-800 */
-}
-
-.state-title {
-    color: #166534; /* green-800 */
-}
-
-/* Input controls */
-.input-group {
-    margin-bottom: 1rem;
-}
-
-.input-row {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-top: 0.25rem;
-    flex-wrap: wrap;
-}
-
-/* Sliders */
-.slider {
-    flex: 1;
-    min-width: 200px;
-    height: 8px;
-    border-radius: 4px;
-    background-color: #e2e8f0; /* slate-200 */
-    outline: none;
-    cursor: pointer;
-    -webkit-appearance: none;
-    appearance: none;
-}
-
-.slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 24px;
-    height: 24px;
-    background: #4f46e5; /* indigo-600 */
-    cursor: pointer;
-    border-radius: 50%;
-    margin-top: -8px;
-    border: 2px solid white;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-.slider::-moz-range-thumb {
-    width: 24px;
-    height: 24px;
-    background: #4f46e5;
-    cursor: pointer;
-    border-radius: 50%;
-    border: 2px solid white;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-/* Number inputs */
-.number-input {
-    width: 140px;
-    padding: 0.75rem 0.5rem;
-    background-color: white;
-    border: 1px solid #d1d5db; /* slate-300 */
-    border-radius: 0.375rem;
-    font-size: 0.875rem;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    transition: all 0.2s;
-    min-height: 44px; /* Touch target size */
-}
-
-.number-input:focus {
-    outline: none;
-    border-color: #4f46e5; /* indigo-500 */
-    box-shadow: 0 0 0 1px #4f46e5;
-}
-
-/* Hide number input spinners */
-.number-input::-webkit-outer-spin-button,
-.number-input::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
-
-.number-input[type=number] {
-    -moz-appearance: textfield;
-    appearance: textfield;
-}
-
-/* Display boxes */
-.display-box {
-    background-color: #fef3c7; /* amber-100 */
-    padding: 0.75rem;
-    border-radius: 0.5rem;
-    text-align: center;
-    margin: 1rem 0;
-}
-
-.display-label {
-    font-size: 0.875rem;
-    color: #d97706; /* amber-600 */
-    margin-bottom: 0.25rem;
-}
-
-.display-value {
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: #92400e; /* amber-800 */
-}
-
-/* Visualization section */
-.visualization-section {
-    margin-bottom: 2rem;
-    border-top: 1px solid #e2e8f0;
-    padding-top: 2rem;
-}
-
-/* Percentage display area */
-.percentage-display {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background-color: #f8fafc; /* slate-50 */
-    border: 1px solid #e2e8f0; /* slate-200 */
-    border-radius: 0.5rem;
-    padding: 1rem;
-    margin-bottom: 0.75rem;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-.percentage-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    flex: 1;
-    min-width: 100px;
-}
-
-.percentage-label {
-    font-size: 0.75rem;
-    color: #64748b; /* slate-600 */
-    margin-bottom: 0.25rem;
-    text-align: center;
-    font-weight: 500;
-}
-
-.percentage-value {
-    font-size: 1rem;
-    font-weight: 700;
-    text-align: center;
-}
-
-/* Color coding for percentage values */
-.percentage-item:nth-child(1) .percentage-value {
-    color: #059669; /* emerald-600 - Take-Home */
-}
-
-.percentage-item:nth-child(2) .percentage-value {
-    color: #2563eb; /* blue-600 - Federal Tax */
-}
-
-.percentage-item:nth-child(3) .percentage-value {
-    color: #ca8a04; /* yellow-600 - State Tax */
-}
-
-.percentage-item:nth-child(4) .percentage-value {
-    color: #9333ea; /* purple-600 - County Tax */
-}
-
-.section-heading {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: #0f172a; /* slate-900 */
-    margin-bottom: 1rem;
-}
-
-.tax-bar-container {
-    width: 100%;
-    height: 56px; /* Slightly larger for better percentage visibility */
-    background-color: #f1f5f9; /* slate-100 */
-    border-radius: 0.5rem;
-    display: flex;
-    overflow: hidden;
-    margin-bottom: 1rem;
-    border: 2px solid #e2e8f0; /* Add border for better definition */
-}
-
-.tax-bar {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 0.875rem; /* Slightly larger font */
-    font-weight: 700; /* Bolder text */
-    transition: all 0.3s ease-in-out;
-    min-width: 0;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); /* Add text shadow for better readability */
-    position: relative;
-}
-
-.bar-take-home { background-color: #10b981; } /* emerald-500 */
-.bar-federal { background-color: #3b82f6; } /* blue-500 */
-.bar-state { background-color: #eab308; } /* yellow-500 */
-.bar-county { background-color: #a855f7; } /* purple-500 */
-
-/* Legend */
-.legend {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 1rem;
-    margin-top: 1rem;
-    font-size: 0.875rem;
-}
-
-.legend-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.legend-color {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-}
-
-/* Summary sections */
-.summary-grid {
-    display: grid;
-    gap: 1.5rem;
-    margin-bottom: 2rem;
-}
-
-.summary-card {
-    padding: 1rem;
-    border-radius: 0.75rem;
-    border: 1px solid;
-}
-
-.federal-summary {
-    background-color: #eff6ff; /* blue-50 */
-    border-color: #bfdbfe; /* blue-200 */
-}
-
-.state-summary {
-    background-color: #f0fdf4; /* green-50 */
-    border-color: #bbf7d0; /* green-200 */
-}
-
-.summary-title {
-    font-size: 1.125rem;
-    font-weight: 600;
-    margin-bottom: 0.75rem;
-}
-
-.summary-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.5rem;
-    gap: 0.5rem;
-}
-
-.summary-label {
-    font-size: 0.875rem;
-    color: #64748b; /* slate-600 */
-    flex: 1;
-}
-
-.summary-value {
-    font-weight: 600;
-    flex-shrink: 0;
-}
-
-.summary-divider {
-    border-top: 1px solid;
-    padding-top: 0.5rem;
-    margin-top: 0.5rem;
-}
-
-/* Total summary */
-.total-summary {
-    background-color: #f1f5f9; /* slate-100 */
-    padding: 1.5rem;
-    border-radius: 0.75rem;
-    border: 2px solid #cbd5e1; /* slate-300 */
-}
-
-.total-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
-    text-align: center;
-    margin-bottom: 1rem;
-}
-
-.total-item {
-    padding: 0.5rem;
-}
-
-.total-label {
-    font-size: 0.875rem;
-    color: #64748b;
-    margin-bottom: 0.25rem;
-}
-
-.total-value {
-    font-size: 1.125rem;
-    font-weight: 700;
-}
-
-.total-main {
-    border-top: 1px solid #cbd5e1;
-    padding-top: 1rem;
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
-    text-align: center;
-}
-
-.total-main-item {
-    padding: 0.5rem;
-}
-
-.total-main-value {
-    font-size: 1.5rem;
-    font-weight: 700;
-}
-
-/* Calculation flow sections */
-.calculation-section {
-    margin-top: 3rem;
-    border-top: 1px solid #e2e8f0;
-    padding-top: 2rem;
-}
-
-.calculation-container {
-    background-color: #f8fafc; /* slate-50 */
-    padding: 1.5rem;
-    border-radius: 0.75rem;
-    border: 1px solid #e2e8f0;
-    margin-bottom: 1.5rem;
-}
-
-/* Add blue border for federal calculation containers */
-.calculation-container {
-    border: 3px solid #3b82f6; /* blue-500 */
-    background-color: #eff6ff; /* blue-50 */
-}
-
-.calculation-title {
-    font-size: 1.125rem;
-    font-weight: 600;
-    color: #1e40af; /* blue-800 */
-    margin-bottom: 1.5rem;
-    text-align: center;
-}
-
-/* Mobile-optimized calculation flow */
-.calc-step {
-    margin-bottom: 1.5rem;
-    padding: 1rem;
-    background-color: white;
-    border-radius: 0.5rem;
-    border: 1px solid #e2e8f0;
-}
-
-.calc-step-mobile {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: nowrap;
-    gap: 0.5rem;
-    align-items: center;
-    justify-content: center;
-    min-height: 80px;
-}
-
-.calc-box {
-    background-color: #f1f5f9; /* slate-200 */
-    padding: 0.75rem 0.5rem;
-    border-radius: 0.5rem;
-    text-align: center;
-    min-width: 80px;
-    flex: 1 1 auto;
-    max-width: 140px;
-}
-
-.calc-box-label {
-    font-size: 0.75rem;
-    color: #64748b;
-    margin-bottom: 0.25rem;
-}
-
-.calc-box-value {
-    font-weight: 600;
-    color: #0f172a;
-    font-size: 1rem;
-}
-
-.calc-operator {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #64748b;
-    margin: 0.5rem 0;
-    flex: 0 0 auto;
-    white-space: nowrap;
-}
-
-.calc-result {
-    background-color: #fef3c7; /* amber-200 */
-}
-
-.calc-result .calc-box-label {
-    color: #d97706; /* amber-700 */
-}
-
-.calc-result .calc-box-value {
-    color: #92400e; /* amber-900 */
-}
-
-/* Unique colors for each calculation element type */
-.calc-gross-income {
-    background-color: #E6ECFE !important; /* Gross Income - Light */
-    border: 2px solid #3B82F6; /* Blue border */
-}
-
-.calc-gross-income .calc-box-label {
-    color: #3B82F6 !important; /* Blue */
-}
-
-.calc-gross-income .calc-box-value {
-    color: #1e40af !important; /* Blue-700 */
-}
-
-.calc-adjustments {
-    background-color: #E6FAF3 !important; /* Adjustments - Light */
-    border: 2px solid #3B82F6; /* Blue border */
-}
-
-.calc-adjustments .calc-box-label {
-    color: #3B82F6 !important; /* Blue */
-}
-
-.calc-adjustments .calc-box-value {
-    color: #1e40af !important; /* Blue-700 */
-}
-
-.calc-deductions {
-    background-color: #E4F7FB !important; /* Deductions - Light */
-    border: 2px solid #3B82F6; /* Blue border */
-}
-
-.calc-deductions .calc-box-label {
-    color: #3B82F6 !important; /* Blue */
-}
-
-.calc-deductions .calc-box-value {
-    color: #1e40af !important; /* Blue-700 */
-}
-
-.calc-tax-rate {
-    background-color: #E8EEF4 !important; /* Effective Tax Rate - Light */
-    border: 2px solid #3B82F6; /* Blue border */
-}
-
-.calc-tax-rate .calc-box-label {
-    color: #3B82F6 !important; /* Blue */
-}
-
-.calc-tax-rate .calc-box-value {
-    color: #1e40af !important; /* Blue-700 */
-}
-
-.calc-pre-credit-tax {
-    background-color: #FFE3E0 !important; /* Tax Before Credits - Light */
-    border: 2px solid #3B82F6; /* Blue border */
-}
-
-.calc-pre-credit-tax .calc-box-label {
-    color: #3B82F6 !important; /* Blue */
-}
-
-.calc-pre-credit-tax .calc-box-value {
-    color: #1e40af !important; /* Blue-700 */
-}
-
-.calc-credits {
-    background-color: #E9FDEB !important; /* Credits - Light */
-    border: 2px solid #3B82F6; /* Blue border */
-}
-
-.calc-credits .calc-box-label {
-    color: #3B82F6 !important; /* Blue */
-}
-
-.calc-credits .calc-box-value {
-    color: #1e40af !important; /* Blue-700 */
-}
-
-.calc-total-tax {
-    background-color: #FFD6D1 !important; /* Total Federal Tax - Light */
-    border: 2px solid #3B82F6; /* Blue border */
-}
-
-.calc-total-tax .calc-box-label {
-    color: #3B82F6 !important; /* Blue */
-}
-
-.calc-total-tax .calc-box-value {
-    color: #1e40af !important; /* Blue-700 */
-}
-
-.calc-take-home {
-    background-color: #EEF8E6 !important; /* Final Take-Home Pay - Light */
-    border: 2px solid #3B82F6; /* Blue border */
-}
-
-.calc-take-home .calc-box-label {
-    color: #3B82F6 !important; /* Blue */
-}
-
-.calc-take-home .calc-box-value {
-    color: #1e40af !important; /* Blue-700 */
-}
-
-.calc-effective-rate {
-    background-color: #E8EEF4 !important; /* Effective Rate - Light */
-    border: 2px solid #3B82F6; /* Blue border */
-}
-
-.calc-effective-rate .calc-box-label {
-    color: #3B82F6 !important; /* Blue */
-}
-
-.calc-effective-rate .calc-box-value {
-    color: #1e40af !important; /* Blue-700 */
-}
-
-/* Maryland-specific classes */
-.calc-maryland-state-tax-rate {
-    background-color: #FFF9D6 !important; /* Maryland State Tax Rate - Light */
-    border: 2px solid #FACC15; /* Yellow border */
-}
-
-.calc-maryland-state-tax-rate .calc-box-label {
-    color: #FACC15 !important; /* Yellow */
-}
-
-.calc-maryland-state-tax-rate .calc-box-value {
-    color: #ca8a04 !important; /* Yellow-700 */
-}
-
-.calc-maryland-state-tax-before-credits {
-    background-color: #FFF1C9 !important; /* Maryland State Tax Before Credits - Light */
-    border: 2px solid #FACC15; /* Yellow border */
-}
-
-.calc-maryland-state-tax-before-credits .calc-box-label {
-    color: #FACC15 !important; /* Yellow */
-}
-
-.calc-maryland-state-tax-before-credits .calc-box-value {
-    color: #ca8a04 !important; /* Yellow-700 */
-}
-
-.calc-maryland-total-state-tax {
-    background-color: #FFE4B8 !important; /* Total Maryland State Tax - Light */
-    border: 2px solid #FACC15; /* Yellow border */
-}
-
-.calc-maryland-total-state-tax .calc-box-label {
-    color: #FACC15 !important; /* Yellow */
-}
-
-.calc-maryland-total-state-tax .calc-box-value {
-    color: #ca8a04 !important; /* Yellow-700 */
-}
-
-.calc-anne-arundel-county-tax {
-    background-color: #F3D6FF !important; /* Anne Arundel County Tax - Light */
-    border: 2px solid #A855F7; /* Purple border */
-}
-
-.calc-anne-arundel-county-tax .calc-box-label {
-    color: #A855F7 !important; /* Purple */
-}
-
-.calc-anne-arundel-county-tax .calc-box-value {
-    color: #7c3aed !important; /* Purple-700 */
-}
-
-.calc-anne-arundel-county-tax-rate {
-    background-color: #E7E0FF !important; /* Anne Arundel County Tax Rate - Light */
-    border: 2px solid #A855F7; /* Purple border */
-}
-
-.calc-anne-arundel-county-tax-rate .calc-box-label {
-    color: #A855F7 !important; /* Purple */
-}
-
-.calc-anne-arundel-county-tax-rate .calc-box-value {
-    color: #7c3aed !important; /* Purple-700 */
-}
-
-.calc-combined-maryland-tax {
-    background-color: #FFD6F1 !important; /* Combined Maryland Tax - Light */
-    border: 2px solid #A855F7; /* Purple border */
-}
-
-.calc-combined-maryland-tax .calc-box-label {
-    color: #A855F7 !important; /* Purple */
-}
-
-.calc-combined-maryland-tax .calc-box-value {
-    color: #7c3aed !important; /* Purple-700 */
-}
-
-/* Concept classes for AGI and Taxable Income */
-.concept-agi {
-    background-color: #EDE7FF !important; /* AGI - Light */
-    border: 2px solid #3B82F6; /* Blue border */
-}
-
-.concept-agi .calc-box-label {
-    color: #3B82F6 !important; /* Blue */
-}
-
-.concept-agi .calc-box-value {
-    color: #1e40af !important; /* Blue-700 */
-}
-
-.concept-taxable-income {
-    background-color: #E6F2FF !important; /* Taxable Income - Light */
-    border: 2px solid #3B82F6; /* Blue border */
-}
-
-.concept-taxable-income .calc-box-label {
-    color: #3B82F6 !important; /* Blue */
-}
-
-.concept-taxable-income .calc-box-value {
-    color: #1e40af !important; /* Blue-700 */
-}
-
-/* Dark mode support */
-.dark {
-    color-scheme: dark;
-}
-
-.dark body {
-    background-color: #0f172a; /* slate-900 */
-    color: #f1f5f9; /* slate-100 - brighter text */
-}
-
-/* Main content areas */
-.dark .main-content {
-    background-color: #1e293b; /* slate-800 */
-    border-color: #374151; /* slate-700 */
-}
-
-/* Header elements */
-.dark .main-title {
-    color: #f1f5f9; /* slate-100 */
-}
-
-.dark .subtitle {
-    color: #94a3b8; /* slate-400 */
-}
-
-.dark .section-heading {
-    color: #f1f5f9; /* slate-100 */
-}
-
-/* Theme toggle button */
-.dark .theme-toggle {
-    background-color: #374151; /* slate-700 */
-    color: #e2e8f0; /* slate-200 */
-}
-
-.dark .theme-toggle:hover {
-    background-color: #4b5563; /* slate-600 */
-}
-
-/* Form controls and inputs */
-.dark .control-label {
-    color: #f1f5f9; /* slate-100 - brighter text */
-}
-
-.dark .filing-status-option {
-    background-color: #374151; /* slate-700 */
-    color: #f1f5f9; /* slate-100 - brighter text */
-    border-color: #4b5563; /* slate-600 */
-}
-
-.dark .filing-status input[type="radio"]:checked + .filing-status-option {
-    background-color: #4f46e5; /* indigo-600 */
-    color: white;
-    border-color: #4f46e5;
-}
-
-.dark .number-input {
-    background-color: #374151; /* slate-700 */
-    border-color: #4b5563; /* slate-600 */
-    color: #f1f5f9; /* slate-100 - brighter text */
-}
-
-.dark .number-input:focus {
-    border-color: #6366f1; /* indigo-500 */
-    box-shadow: 0 0 0 1px #6366f1;
-}
-
-.dark .slider {
-    background-color: #4b5563; /* slate-600 */
-}
-
-.dark .slider::-webkit-slider-thumb {
-    background: #6366f1; /* indigo-500 */
-}
-
-.dark .slider::-moz-range-thumb {
-    background: #6366f1; /* indigo-500 */
-}
-
-/* Tax sections */
-.dark .tax-section {
-    background-color: #1e293b; /* slate-800 */
-    border-color: #374151; /* slate-700 */
-}
-
-.dark .federal-section {
-    border-color: #3b82f6; /* blue-500 */
-    background-color: #1e293b; /* slate-800 */
-}
-
-.dark .state-section {
-    border-color: #22c55e; /* green-500 */
-    background-color: #1e293b; /* slate-800 */
-}
-
-.dark .section-title {
-    color: #f1f5f9; /* slate-100 */
-}
-
-.dark .federal-title {
-    color: #60a5fa; /* blue-400 */
-}
-
-.dark .state-title {
-    color: #4ade80; /* green-400 */
-}
-
-/* Display boxes */
-.dark .display-box {
-    background-color: #451a03; /* amber-900 */
-    border-color: #92400e; /* amber-800 */
-}
-
-.dark .display-label {
-    color: #fbbf24; /* amber-400 */
-}
-
-.dark .display-value {
-    color: #fde047; /* yellow-300 */
-}
-
-/* Summary cards */
-.dark .summary-card {
-    background-color: #1e293b; /* slate-800 */
-    border-color: #374151; /* slate-700 */
-}
-
-.dark .federal-summary {
-    background-color: #1e293b; /* slate-800 */
-    border-color: #3b82f6; /* blue-500 */
-}
-
-.dark .state-summary {
-    background-color: #1e293b; /* slate-800 */
-    border-color: #22c55e; /* green-500 */
-}
-
-.dark .summary-label {
-    color: #cbd5e1; /* slate-300 - slightly brighter than before */
-}
-
-.dark .summary-value {
-    color: #f1f5f9; /* slate-100 - brighter text */
-}
-
-/* Total summary */
-.dark .total-summary {
-    background-color: #0f172a; /* slate-900 - darker background */
-    border-color: #374151; /* slate-700 */
-}
-
-.dark .total-label {
-    color: #cbd5e1; /* slate-300 - brighter */
-}
-
-.dark .total-value {
-    color: #f1f5f9; /* slate-100 - brighter text */
-}
-
-.dark .total-main-value {
-    color: #f1f5f9; /* slate-100 */
-}
-
-/* Visualization section */
-.dark .tax-bar-container {
-    background-color: #374151; /* slate-700 */
-    border-color: #4b5563; /* slate-600 */
-}
-
-/* Dark mode for percentage display */
-.dark .percentage-display {
-    background-color: #1e293b; /* slate-800 */
-    border-color: #475569; /* slate-600 */
-}
-
-.dark .percentage-label {
-    color: #cbd5e1; /* slate-300 */
-}
-
-/* Dark mode color coding for percentage values */
-.dark .percentage-item:nth-child(1) .percentage-value {
-    color: #10b981; /* emerald-500 - Take-Home */
-}
-
-.dark .percentage-item:nth-child(2) .percentage-value {
-    color: #60a5fa; /* blue-400 - Federal Tax */
-}
-
-.dark .percentage-item:nth-child(3) .percentage-value {
-    color: #eab308; /* yellow-500 - State Tax */
-}
-
-.dark .percentage-item:nth-child(4) .percentage-value {
-    color: #a855f7; /* purple-500 - County Tax */
-}
-
-.dark .legend {
-    color: #f1f5f9; /* slate-100 - brighter text */
-}
-
-/* Calculation flow sections */
-.dark .calc-box {
-    background-color: #374151; /* slate-700 */
-    color: #e2e8f0; /* slate-200 */
-    border-color: #4b5563; /* slate-600 */
-}
-
-.dark .calc-box-label {
-    color: #cbd5e1; /* slate-300 - brighter */
-}
-
-.dark .calc-box-value {
-    color: #f1f5f9; /* slate-100 - brighter text */
-}
-
-.dark .calc-operator {
-    color: #cbd5e1; /* slate-300 - brighter */
-}
-
-.dark .calc-result {
-    background-color: #451a03; /* amber-900 */
-    border-color: #92400e; /* amber-800 */
-}
-
-.dark .calc-result .calc-box-label {
-    color: #fbbf24; /* amber-400 */
-}
-
-.dark .calc-result .calc-box-value {
-    color: #fde047; /* yellow-300 */
-}
-
-/* Dark mode overrides for new colored calculation boxes */
-.dark .calc-gross-income {
-    background-color: #1B2344 !important; /* Gross Income - Dark */
-    border-color: #60A5FA !important; /* Blue border for dark mode */
-}
-
-.dark .calc-gross-income .calc-box-label {
-    color: #60A5FA !important; /* Blue for dark mode */
-}
-
-.dark .calc-gross-income .calc-box-value {
-    color: #93C5FD !important; /* Blue-300 for dark mode */
-}
-
-.dark .calc-adjustments {
-    background-color: #0F3831 !important; /* Adjustments - Dark */
-    border-color: #60A5FA !important; /* Blue border for dark mode */
-}
-
-.dark .calc-adjustments .calc-box-label {
-    color: #60A5FA !important; /* Blue for dark mode */
-}
-
-.dark .calc-adjustments .calc-box-value {
-    color: #93C5FD !important; /* Blue-300 for dark mode */
-}
-
-.dark .calc-deductions {
-    background-color: #0E3440 !important; /* Deductions - Dark */
-    border-color: #60A5FA !important; /* Blue border for dark mode */
-}
-
-.dark .calc-deductions .calc-box-label {
-    color: #60A5FA !important; /* Blue for dark mode */
-}
-
-.dark .calc-deductions .calc-box-value {
-    color: #93C5FD !important; /* Blue-300 for dark mode */
-}
-
-.dark .calc-tax-rate {
-    background-color: #1C2730 !important; /* Effective Tax Rate - Dark */
-    border-color: #60A5FA !important; /* Blue border for dark mode */
-}
-
-.dark .calc-tax-rate .calc-box-label {
-    color: #60A5FA !important; /* Blue for dark mode */
-}
-
-.dark .calc-tax-rate .calc-box-value {
-    color: #93C5FD !important; /* Blue-300 for dark mode */
-}
-
-.dark .calc-pre-credit-tax {
-    background-color: #3A1E1B !important; /* Tax Before Credits - Dark */
-    border-color: #60A5FA !important; /* Blue border for dark mode */
-}
-
-.dark .calc-pre-credit-tax .calc-box-label {
-    color: #60A5FA !important; /* Blue for dark mode */
-}
-
-.dark .calc-pre-credit-tax .calc-box-value {
-    color: #93C5FD !important; /* Blue-300 for dark mode */
-}
-
-.dark .calc-credits {
-    background-color: #12331A !important; /* Credits - Dark */
-    border-color: #60A5FA !important; /* Blue border for dark mode */
-}
-
-.dark .calc-credits .calc-box-label {
-    color: #60A5FA !important; /* Blue for dark mode */
-}
-
-.dark .calc-credits .calc-box-value {
-    color: #93C5FD !important; /* Blue-300 for dark mode */
-}
-
-.dark .calc-total-tax {
-    background-color: #321816 !important; /* Total Federal Tax - Dark */
-    border-color: #60A5FA !important; /* Blue border for dark mode */
-}
-
-.dark .calc-total-tax .calc-box-label {
-    color: #60A5FA !important; /* Blue for dark mode */
-}
-
-.dark .calc-total-tax .calc-box-value {
-    color: #93C5FD !important; /* Blue-300 for dark mode */
-}
-
-.dark .calc-take-home {
-    background-color: #1B2F14 !important; /* Final Take-Home Pay - Dark */
-    border-color: #60A5FA !important; /* Blue border for dark mode */
-}
-
-.dark .calc-take-home .calc-box-label {
-    color: #60A5FA !important; /* Blue for dark mode */
-}
-
-.dark .calc-take-home .calc-box-value {
-    color: #93C5FD !important; /* Blue-300 for dark mode */
-}
-
-.dark .calc-effective-rate {
-    background-color: #1C2730 !important; /* Effective Rate - Dark */
-    border-color: #60A5FA !important; /* Blue border for dark mode */
-}
-
-.dark .calc-effective-rate .calc-box-label {
-    color: #60A5FA !important; /* Blue for dark mode */
-}
-
-.dark .calc-effective-rate .calc-box-value {
-    color: #93C5FD !important; /* Blue-300 for dark mode */
-}
-
-/* Dark mode styles for Maryland-specific classes */
-.dark .calc-maryland-state-tax-rate {
-    background-color: #3A3517 !important; /* Maryland State Tax Rate - Dark */
-    border-color: #FDE047 !important; /* Yellow border for dark mode */
-}
-
-.dark .calc-maryland-state-tax-rate .calc-box-label {
-    color: #FDE047 !important; /* Yellow for dark mode */
-}
-
-.dark .calc-maryland-state-tax-rate .calc-box-value {
-    color: #FEF08A !important; /* Yellow-200 for dark mode */
-}
-
-.dark .calc-maryland-state-tax-before-credits {
-    background-color: #3F3313 !important; /* Maryland State Tax Before Credits - Dark */
-    border-color: #FDE047 !important; /* Yellow border for dark mode */
-}
-
-.dark .calc-maryland-state-tax-before-credits .calc-box-label {
-    color: #FDE047 !important; /* Yellow for dark mode */
-}
-
-.dark .calc-maryland-state-tax-before-credits .calc-box-value {
-    color: #FEF08A !important; /* Yellow-200 for dark mode */
-}
-
-.dark .calc-maryland-total-state-tax {
-    background-color: #3E2A10 !important; /* Total Maryland State Tax - Dark */
-    border-color: #FDE047 !important; /* Yellow border for dark mode */
-}
-
-.dark .calc-maryland-total-state-tax .calc-box-label {
-    color: #FDE047 !important; /* Yellow for dark mode */
-}
-
-.dark .calc-maryland-total-state-tax .calc-box-value {
-    color: #FEF08A !important; /* Yellow-200 for dark mode */
-}
-
-.dark .calc-anne-arundel-county-tax {
-    background-color: #3F2163 !important; /* Anne Arundel County Tax - Dark */
-    border-color: #C084FC !important; /* Purple border for dark mode */
-}
-
-.dark .calc-anne-arundel-county-tax .calc-box-label {
-    color: #C084FC !important; /* Purple for dark mode */
-}
-
-.dark .calc-anne-arundel-county-tax .calc-box-value {
-    color: #DDD6FE !important; /* Purple-200 for dark mode */
-}
-
-.dark .calc-anne-arundel-county-tax-rate {
-    background-color: #2E2457 !important; /* Anne Arundel County Tax Rate - Dark */
-    border-color: #C084FC !important; /* Purple border for dark mode */
-}
-
-.dark .calc-anne-arundel-county-tax-rate .calc-box-label {
-    color: #C084FC !important; /* Purple for dark mode */
-}
-
-.dark .calc-anne-arundel-county-tax-rate .calc-box-value {
-    color: #DDD6FE !important; /* Purple-200 for dark mode */
-}
-
-.dark .calc-combined-maryland-tax {
-    background-color: #4A1845 !important; /* Combined Maryland Tax - Dark */
-    border-color: #C084FC !important; /* Purple border for dark mode */
-}
-
-.dark .calc-combined-maryland-tax .calc-box-label {
-    color: #C084FC !important; /* Purple for dark mode */
-}
-
-.dark .calc-combined-maryland-tax .calc-box-value {
-    color: #DDD6FE !important; /* Purple-200 for dark mode */
-}
-
-/* Dark mode overrides for calculation boxes with inline styles */
-.dark .calc-box[style*="background-color: #dbeafe"] {
-    background-color: #1e40af !important; /* darker blue for dark mode */
-}
-
-.dark .calc-box[style*="background-color: #dcfce7"] {
-    background-color: #166534 !important; /* darker green for dark mode */
-}
-
-.dark .calc-box[style*="background-color: #d1fae5"] {
-    background-color: #065f46 !important; /* dark green for dark mode */
-}
-
-/* Dark mode text color overrides for elements with inline color styles */
-.dark .calc-box-label[style*="color: #1e40af"],
-.dark .calc-box-value[style*="color: #1e3a8a"] {
-    color: #bfdbfe !important; /* light blue for dark mode */
-}
-
-.dark .calc-box-label[style*="color: #166534"],
-.dark .calc-box-value[style*="color: #14532d"] {
-    color: #bbf7d0 !important; /* light green for dark mode */
-}
-
-.dark .calc-box-label[style*="color: #065f46"],
-.dark .calc-box-value[style*="color: #064e3b"] {
-    color: #d1fae5 !important; /* very light green for dark mode */
-}
-
-/* Dark mode for calculation containers */
-.dark .calculation-container {
-    background-color: #1e293b !important; /* slate-800 for dark mode */
-    border-color: #1e40af !important; /* darker blue border for dark mode */
-}
-
-.dark .calc-step {
-    background-color: #374151 !important; /* slate-700 for dark mode */
-    border-color: #4b5563 !important; /* slate-600 border for dark mode */
-}
-
-/* Dark mode for specific colored text elements */
-.dark p[style*="color: #2563eb"] {
-    color: #60a5fa !important; /* blue-400 for dark mode */
-}
-
-.dark p[style*="color: #16a34a"] {
-    color: #4ade80 !important; /* green-400 for dark mode */
-}
-
-.dark p[style*="color: #9333ea"] {
-    color: #a855f7 !important; /* purple-500 for dark mode */
-}
-
-.dark p[style*="color: #059669"] {
-    color: #10b981 !important; /* emerald-500 for dark mode */
-}
-
-.dark span[style*="color: #7c3aed"] {
-    color: #a855f7 !important; /* purple-500 for dark mode */
-}
-
-/* Color-coded concept boxes for visual consistency */
-.concept-agi {
-    border: 2px solid #f59e0b; /* amber-500 - consistent AGI color */
-    background-color: #fef3c7; /* amber-100 */
-}
-
-.concept-taxable-income {
-    border: 2px solid #3b82f6; /* blue-500 - consistent taxable income color */
-    background-color: #dbeafe; /* blue-100 */
-}
-
-.concept-tax-amount {
-    border: 2px solid #ef4444; /* red-500 - consistent tax amount color */
-    background-color: #fee2e2; /* red-100 */
-}
-
-.concept-credits {
-    border: 2px solid #10b981; /* emerald-500 - consistent credits color */
-    background-color: #d1fae5; /* emerald-100 */
-}
-
-.concept-take-home {
-    border: 2px solid #059669; /* emerald-600 - consistent take-home color */
-    background-color: #dcfce7; /* green-100 */
-}
-
-/* Dark mode versions of concept boxes */
-.dark .concept-agi {
-    background-color: #2A1F55 !important; /* AGI - Dark */
-    border-color: #60A5FA !important; /* Blue border for dark mode */
-}
-
-.dark .concept-taxable-income {
-    background-color: #14253A !important; /* Taxable Income - Dark */
-    border-color: #60A5FA !important; /* Blue border for dark mode */
-}
-
-.dark .concept-tax-amount {
-    border-color: #ef4444; /* red-500 */
-    background-color: #7f1d1d; /* red-900 */
-}
-
-.dark .concept-credits {
-    border-color: #10b981; /* emerald-500 */
-    background-color: #064e3b; /* emerald-900 */
-}
-
-.dark .concept-take-home {
-    border-color: #059669; /* emerald-600 */
-    background-color: #065f46; /* green-900 */
-}
-
-/* Ensure text remains readable in concept boxes */
-.dark .concept-agi .calc-box-label,
-.dark .concept-agi .calc-box-value,
-.dark .concept-agi .display-label,
-.dark .concept-agi .display-value {
-    color: #60A5FA !important; /* Blue for dark mode */
-}
-
-.dark .concept-taxable-income .calc-box-label,
-.dark .concept-taxable-income .calc-box-value {
-    color: #60A5FA !important; /* Blue for dark mode */
-}
-
-.dark .concept-tax-amount .calc-box-label,
-.dark .concept-tax-amount .calc-box-value {
-    color: #f87171 !important; /* red-400 */
-}
-
-.dark .concept-credits .calc-box-label,
-.dark .concept-credits .calc-box-value {
-    color: #34d399 !important; /* emerald-400 */
-}
-
-.dark .concept-take-home .calc-box-label,
-.dark .concept-take-home .calc-box-value {
-    color: #10b981 !important; /* emerald-500 */
-}
-
-/* Hidden by default */
-.hidden {
-    display: none;
-}
-
-/* Responsive breakpoints */
-
-/* Small mobile devices (320px and up) */
-@media (min-width: 320px) {
-    .container {
-        padding: 0.75rem;
-    }
-    
-    .input-row {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    
-    .slider {
-        min-width: 100%;
-        margin-bottom: 0.5rem;
-    }
-    
-    .number-input {
-        width: 100%;
-    }
-    
-    /* Mobile percentage display */
-    .percentage-display {
-        flex-direction: column;
-        gap: 0.75rem;
-    }
-    
-    .percentage-item {
-        flex-direction: row;
-        justify-content: space-between;
-        align-items: center;
-        width: 100%;
-        min-width: auto;
-    }
-    
-    .percentage-label {
-        margin-bottom: 0;
-        text-align: left;
-    }
-    
-    .percentage-value {
-        text-align: right;
-    }
-    
-    /* Keep math equations on one line even on small screens */
-    .calc-step-mobile {
-        flex-direction: row;
-        flex-wrap: nowrap;
-        justify-content: center;
-        padding: 0.5rem;
-        gap: 0.25rem;
-    }
-    
-    .calc-box {
-        min-width: 70px;
-        max-width: 110px;
-        padding: 0.5rem 0.25rem;
-        font-size: 0.75rem;
-    }
-    
-    .calc-box-label {
-        font-size: 0.625rem;
-    }
-    
-    .calc-box-value {
-        font-size: 0.875rem;
-    }
-    
-    .calc-operator {
-        margin: 0 0.25rem;
-        font-size: 1.25rem;
-    }
-}
-
-/* Medium mobile devices (375px and up) */
-@media (min-width: 375px) {
-    .container {
-        padding: 1rem;
-    }
-    
-    .input-row {
-        flex-direction: row;
-        align-items: center;
-    }
-    
-    .slider {
-        min-width: 200px;
-    }
-    
-    .number-input {
-        width: 140px;
-    }
-    
-    /* Reset percentage display to flex layout */
-    .percentage-display {
-        flex-direction: row;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-    }
-    
-    .percentage-item {
-        flex-direction: column;
-        flex: 1;
-        min-width: 80px;
-    }
-    
-    .percentage-label {
-        text-align: center;
-        margin-bottom: 0.25rem;
-    }
-    
-    .percentage-value {
-        text-align: center;
-    }
-}
-
-/* Large mobile devices (425px and up) */
-@media (min-width: 425px) {
-    .total-grid {
-        grid-template-columns: repeat(4, 1fr);
-    }
-}
-
-/* Tablets (768px and up) */
-@media (min-width: 768px) {
-    .container {
-        padding: 2rem;
-    }
-    
-    .main-content {
-        padding: 2rem;
-    }
-    
-    .main-title {
-        font-size: 2.25rem; /* text-4xl */
-    }
-    
-    .summary-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .tax-bar-container {
-        height: 48px;
-    }
-    
-    .calc-step-mobile {
-        justify-content: center;
-        padding: 1rem;
-    }
-    
-    .calc-box {
-        min-width: 120px;
-        max-width: 150px;
-        padding: 1rem;
-    }
-    
-    .calc-operator {
-        margin: 0 0.5rem;
-        font-size: 1.5rem;
-    }
-    
-    .total-main {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-/* Desktop (1024px and up) */
-@media (min-width: 1024px) {
-    .calc-step-mobile {
-        flex-wrap: nowrap;
-    }
-}
-
-/* Focus states for accessibility */
-.slider:focus,
-.number-input:focus,
-.filing-status input[type="radio"]:focus + .filing-status-option,
-.theme-toggle:focus {
-    outline: 2px solid #4f46e5;
-    outline-offset: 2px;
-}
-
-/* Ensure text is readable */
-@media (max-width: 374px) {
-    html {
-        font-size: 14px;
-    }
-    
-    .main-title {
-        font-size: 1.5rem;
-    }
-    
-    .subtitle {
-        font-size: 0.875rem;
-    }
-}
-
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-    .calc-box {
-        border: 2px solid #000;
-    }
-    
-    .dark .calc-box {
-        border: 2px solid #fff;
-    }
-}
-
-/* Reduced motion support */
-@media (prefers-reduced-motion: reduce) {
-    * {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-    }
-}
-
-/* Tab Navigation Styles */
+  display: inline-grid; place-items: center;
+  width: 2.5rem; height: 2.5rem;
+  background: transparent; color: var(--text);
+  border: 2px solid var(--rule); border-radius: 0;
+  cursor: pointer;
+}
+.theme-toggle svg { width: 1.15rem; height: 1.15rem; }
+.theme-toggle:hover { background: var(--text); color: var(--bg); }
+
+/* ============================================================
+   TABS — poster labels on a 3px rule
+   ============================================================ */
 .tab-navigation {
-    display: flex;
-    border-bottom: 2px solid #e2e8f0; /* slate-200 */
-    margin-bottom: 2rem;
-    background: transparent;
+  display: flex; flex-wrap: wrap; align-items: flex-end;
+  gap: 0 1.6rem;
+  border-top: 3px solid var(--rule);
+  border-bottom: 3px solid var(--rule);
+  padding-top: .35rem;
 }
-
 .tab-button {
-    flex: 1;
-    padding: 1rem 1.5rem;
-    border: none;
-    background: transparent;
-    color: #64748b; /* slate-500 */
-    font-size: 1rem;
-    font-weight: 500;
-    cursor: pointer;
-    border-bottom: 3px solid transparent;
-    transition: all 0.2s ease;
-    position: relative;
+  font: 400 1.2rem/1 var(--poster);
+  text-transform: uppercase;
+  letter-spacing: .01em;
+  background: none; border: 0; border-radius: 0;
+  border-bottom: 4px solid transparent;
+  padding: .8rem 0 .55rem;
+  cursor: pointer;
+  color: var(--text);
+  white-space: nowrap;
+}
+.tab-button:hover { color: var(--accent); }
+.tab-button.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-button.tab-secondary {
+  font: 600 .78rem/1 var(--font); letter-spacing: .12em;
+  color: var(--text-secondary); padding: .95rem 0 .75rem;
+}
+.tab-button.tab-secondary:hover, .tab-button.tab-secondary.active { color: var(--accent); }
+#provinces-tab { margin-right: auto; }
+
+/* ============================================================
+   MAIN
+   ============================================================ */
+.main-content { padding-block: 1.8rem 3rem; min-width: 0; }
+.tab-content { display: none; }
+.tab-content.active { display: block; animation: tab-in .18s ease-out; }
+@keyframes tab-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.error-banner {
+  background: var(--t-red); border-left: 6px solid var(--c-red);
+  color: var(--text); padding: 1rem 1.2rem; margin-bottom: 1.4rem; font-weight: 600;
 }
 
-.tab-button:hover {
-    color: #334155; /* slate-700 */
-    background: #f8fafc; /* slate-50 */
+/* Math switch: segmented control, active = inverted */
+.math-switch { display: flex; align-items: center; gap: .9rem; flex-wrap: wrap; margin-bottom: 1.6rem; }
+.math-switch-label { color: var(--text-secondary); }
+.math-switch-button {
+  font: 600 .8rem/1 var(--font); letter-spacing: .1em; text-transform: uppercase;
+  background: transparent; color: var(--text);
+  border: 2px solid var(--rule); border-radius: 0;
+  padding: .6rem .9rem; cursor: pointer; min-height: 40px;
 }
+.math-switch-button + .math-switch-button { margin-left: calc(-.9rem - 2px); } /* cancel the flex gap, share the 2px border */
+.math-switch-button:hover { color: var(--accent); }
+.math-switch-button.active { background: var(--text); color: var(--bg); }
 
-.tab-button.active {
-    color: #2563eb; /* blue-600 */
-    border-bottom-color: #2563eb; /* blue-600 */
-    background: #f8fafc; /* slate-50 */
-    font-weight: 600;
+/* ============================================================
+   SETUP — two poster columns
+   ============================================================ */
+.setup-intro { font-size: 1.15rem; line-height: 1.5; max-width: 44rem; margin-bottom: 1.8rem; }
+.scenario-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2.2rem; }
+.scenario-card { border-top: 3px solid var(--rule); padding-top: .4rem; min-width: 0; }
+.section-title {
+  font: 400 clamp(2.2rem, 3.6vw, 3rem)/1 var(--poster);
+  text-transform: uppercase; letter-spacing: .005em;
+  padding: .55rem 0 .8rem;
 }
+.scenario-letter { color: var(--accent); }
+#scenario-b-card .scenario-letter { color: var(--c-teal); }
+#scenario-b-card { border-top-color: var(--c-teal); }
 
-.tab-button:focus {
-    outline: 2px solid #2563eb; /* blue-600 */
-    outline-offset: -2px;
+.input-group { padding-block: .9rem 1rem; border-top: 1px solid var(--border); }
+.control-label {
+  display: block; font: 600 .74rem/1.4 var(--font); letter-spacing: .09em; text-transform: uppercase;
+  margin-bottom: .6rem;
 }
+.input-row { display: grid; grid-template-columns: minmax(0, 1fr) 9.5rem; gap: 1rem; align-items: center; }
 
-/* Tab Content Styles */
-.tab-content {
-    display: none;
+.select-input, .number-input {
+  width: 100%;
+  font: 400 1rem/1.2 var(--font);
+  color: var(--text);
+  background: var(--surface);
+  border: 2px solid var(--rule); border-radius: 0;
+  padding: .6rem .75rem;
+  min-height: 46px;
+  -webkit-appearance: none; appearance: none;
 }
-
-.tab-content.active {
-    display: block;
+.select-input {
+  font: 400 1.35rem/1.1 var(--poster); text-transform: uppercase; letter-spacing: .01em;
+  padding-right: 2.6rem; cursor: pointer;
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 1.15rem) 55%, calc(100% - .8rem) 55%;
+  background-size: .38rem .38rem;
+  background-repeat: no-repeat;
 }
+.select-input option { font: 400 1rem var(--font); text-transform: none; background: var(--bg); color: var(--text); }
+.number-input { font: 400 1.5rem/1 var(--poster); letter-spacing: .02em; text-align: right; font-variant-numeric: tabular-nums; }
+.select-input:focus, .number-input:focus { outline: none; border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.number-input::-webkit-outer-spin-button, .number-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.number-input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 
-/* Dark mode tab styles */
-.dark .tab-navigation {
-    border-bottom-color: #475569; /* slate-600 */
+/* Sliders: square thumb in the accent block, track in secondary ink (3:1+) */
+.slider { -webkit-appearance: none; appearance: none; width: 100%; height: 28px; background: transparent; cursor: pointer; }
+.slider::-webkit-slider-runnable-track { height: 3px; background: var(--rule); }
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 22px; height: 22px; margin-top: -9.5px;
+  background: var(--block); border: 0; border-radius: 0;
 }
+.slider::-moz-range-track { height: 3px; background: var(--rule); border: 0; }
+.slider::-moz-range-thumb { width: 22px; height: 22px; background: var(--block); border: 0; border-radius: 0; }
+#scenario-b-card .slider::-webkit-slider-thumb { background: var(--c-teal); }
+#scenario-b-card .slider::-moz-range-thumb { background: var(--c-teal); }
+.slider:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.dark .tab-button {
-    color: #94a3b8; /* slate-400 */
+.compare-toggle-row {
+  display: flex; align-items: center; gap: .75rem;
+  margin-top: 2rem; padding-block: 1rem;
+  border-top: 3px solid var(--rule); border-bottom: 1px solid var(--border);
+  font-weight: 600; cursor: pointer;
 }
+.compare-toggle-row input { width: 1.25rem; height: 1.25rem; accent-color: var(--block); cursor: pointer; flex: none; }
 
-.dark .tab-button:hover {
-    color: #e2e8f0; /* slate-200 */
-    background: #334155; /* slate-700 */
+.primary-button {
+  display: inline-flex; align-items: center; gap: .7rem;
+  font: 400 1.5rem/1 var(--poster); text-transform: uppercase; letter-spacing: .02em;
+  background: var(--block); color: var(--on-block);
+  border: 0; border-radius: 0;
+  padding: 1rem 1.6rem; min-height: 56px; cursor: pointer;
 }
+.primary-button::after { content: "\2192"; font-family: var(--font); font-size: 1.2rem; }
+.primary-button:hover { background: var(--text); color: var(--bg); }
 
-.dark .tab-button.active {
-    color: #60a5fa; /* blue-400 */
-    border-bottom-color: #60a5fa; /* blue-400 */
-    background: #334155; /* slate-700 */
+/* ============================================================
+   TAKE-HOME — poster columns + solid difference band
+   ============================================================ */
+.edit-inputs-row { margin: 0 0 1.2rem; }
+.link-button {
+  font: 600 .8rem/1.2 var(--font); letter-spacing: .12em; text-transform: uppercase;
+  color: var(--accent); background: none; border: 0; padding: .3rem 0; cursor: pointer;
 }
+.link-button:hover { text-decoration: underline; text-underline-offset: 4px; }
 
-.dark .tab-button:focus {
-    outline-color: #60a5fa; /* blue-400 */
+.headline-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 2.2rem; }
+.headline-card { border-top: 3px solid var(--rule); padding: .9rem 0 1.4rem; min-width: 0; }
+.headline-label {
+  font: 400 clamp(1.25rem, 2vw, 1.6rem)/1.05 var(--poster);
+  text-transform: uppercase; letter-spacing: .01em;
+  overflow-wrap: anywhere;
 }
-
-/* Mobile responsive adjustments for tabs */
-@media (max-width: 640px) {
-    .tab-button {
-        padding: 0.875rem 1rem;
-        font-size: 0.875rem;
-    }
+.headline-value {
+  font: 400 clamp(3.6rem, 9vw, 7.25rem)/.92 var(--poster);
+  color: var(--accent);
+  letter-spacing: -.005em;
+  margin-top: .55rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
+.headline-sub { font-size: .95rem; color: var(--text-secondary); margin-top: .5rem; }
+.headline-sub span { font-weight: 600; color: var(--text); }
 
-/* Tax Bracket Breakdown Table Styles */
-.bracket-table-container {
-    margin-bottom: 3rem;
-    background: white;
-    border-radius: 0.75rem;
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-    overflow: hidden;
+/* B in teal (Scenario B gets its own muted teal; A stays cobalt) */
+.headline-b { border-top-color: var(--c-teal); }
+.headline-b .headline-value { color: var(--c-teal); }
+
+/* Difference band: the solid block. Colour follows the sign of B - A:
+   cobalt when B keeps more, red when B keeps less, neutral when equal.
+   The sentence (out-diff-sentence) joins the band when comparing. */
+.headline-diff, .headline-grid:has(> #out-diff-headline:not(.hidden)) .diff-sentence {
+  --band: var(--block); --on-band: var(--on-block);
+  background: var(--band); color: var(--on-band);
 }
+.headline-grid:has(#out-diff-take-home.diff-negative) .headline-diff,
+.headline-grid:has(#out-diff-take-home.diff-negative) .diff-sentence { --band: var(--ink-block); --on-band: var(--on-ink-block); }
+.headline-grid:has(#out-diff-take-home:not(.diff-negative):not(.diff-positive)) .headline-diff,
+.headline-grid:has(#out-diff-take-home:not(.diff-negative):not(.diff-positive)) .diff-sentence { --band: var(--surface); --on-band: var(--text); }
+.headline-diff {
+  border-top: 0; padding: 1.2rem 1.5rem 1.3rem; margin-top: .4rem;
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: .2rem 1.6rem; align-items: baseline;
+}
+.headline-diff .headline-label { font: 600 .8rem/1.2 var(--font); letter-spacing: .14em; }
+.headline-diff .headline-value { color: inherit; font-size: clamp(3rem, 6vw, 4.75rem); margin-top: .2rem; }
+.headline-diff .headline-sub, .headline-diff .headline-sub span { color: inherit; }
+.headline-diff .headline-sub span { font-weight: 600; }
+.headline-diff .headline-label::after { content: " \00B7  Same take-home"; }
+.headline-grid:has(#out-diff-take-home.diff-positive) .headline-diff .headline-label::after { content: " \00B7  B keeps more"; }
+.headline-grid:has(#out-diff-take-home.diff-negative) .headline-diff .headline-label::after { content: " \00B7  B keeps less"; }
 
+.diff-sentence { grid-column: 1 / -1; font-size: 1.2rem; line-height: 1.5; max-width: 52rem; margin-top: 1.1rem; }
+.headline-grid:has(> #out-diff-headline:not(.hidden)) .diff-sentence {
+  max-width: none; margin-top: 0; padding: 0 1.5rem 1.3rem; font-weight: 500;
+}
+.estimate-line { margin-top: 1rem; font-size: .95rem; color: var(--text); }
+
+/* Bars */
+.visualization-section { margin-top: 2.6rem; }
+.bars-stack { display: grid; gap: 1rem; border-top: 3px solid var(--rule); padding-top: 1.1rem; }
+.bar-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: .4rem; }
+.bar-row-label { font: 400 1.1rem/1.1 var(--poster); text-transform: uppercase; letter-spacing: .01em; }
+.tax-bar-container { display: flex; height: 2.4rem; background: var(--surface); overflow: hidden; }
+.tax-bar {
+  height: 100%; display: flex; align-items: center; justify-content: center;
+  font: 400 1rem/1 var(--poster); letter-spacing: .02em; overflow: hidden; white-space: nowrap;
+  transition: width .3s ease;
+}
+.bar-take-home  { background: var(--block); color: var(--on-block); }
+.bar-federal    { background: var(--text);  color: var(--bg); }
+.bar-provincial { background: var(--text-secondary); color: var(--bg); }
+.bars-stack .bar-row:nth-child(2) .bar-take-home { background: var(--c-teal); color: var(--on-hue); }
+.bars-stack .bar-row:nth-child(2) .bar-row-label { color: var(--c-teal); }
+.legend-color.bar-take-home { background: linear-gradient(90deg, var(--block) 50%, var(--c-teal) 50%); }
+.bar-payroll    { background: var(--c-amber); color: var(--on-hue); }
+.legend { display: flex; flex-wrap: wrap; gap: .5rem 1.4rem; margin-top: 1rem; font-size: .85rem; color: var(--text-secondary); }
+.legend-item { display: flex; align-items: center; gap: .45rem; }
+.legend-color { width: .9rem; height: .9rem; flex: none; }
+
+/* ============================================================
+   TABLES — 3px rule on top, 2px under the head, 1px hairlines
+   ============================================================ */
+.bracket-table-container { margin: 2.4rem 0 0; min-width: 0; }
 .bracket-table-container h3 {
-    font-weight: 600;
-    font-size: 1.25rem;
-    margin: 0;
-    padding: 1.5rem 1.5rem 0.5rem;
-    color: inherit;
+  font: 400 1.45rem/1.1 var(--poster); text-transform: uppercase; letter-spacing: .01em;
+  margin-bottom: .7rem;
+}
+.table-wrapper { overflow-x: auto; border-top: 3px solid var(--rule); -webkit-overflow-scrolling: touch; }
+.bracket-table { border-collapse: collapse; width: 100%; font-size: .95rem; line-height: 1.4; }
+.bracket-table thead th {
+  font: 600 .72rem/1.25 var(--font); letter-spacing: .12em; text-transform: uppercase;
+  text-align: right; vertical-align: bottom;
+  padding: .8rem .9rem .65rem;
+  border-bottom: 2px solid var(--rule);
+}
+.bracket-table td, .bracket-table tbody th, .bracket-table tfoot td {
+  padding: .65rem .9rem; border-bottom: 1px solid var(--border);
+  text-align: right; vertical-align: top;
+}
+.bracket-table td { font-family: var(--mono); font-size: .9rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bracket-table tbody th { font-weight: 400; text-align: left; }
+.bracket-table td:first-child { font-family: var(--font); font-size: .95rem; white-space: normal; }
+.bracket-table td .src-links { text-align: inherit; }
+.bracket-table th:first-child, .bracket-table td:first-child { text-align: left; padding-left: 0; }
+.bracket-table th:last-child, .bracket-table td:last-child { padding-right: 0; }
+.bracket-table tbody tr:hover { background: var(--surface); }
+.bracket-table .total-row td { border-top: 2px solid var(--rule); border-bottom: 0; font-weight: 600; padding-block: .8rem; }
+.bracket-table .total-row td:first-child { font-family: var(--font); }
+.bracket-table tr.active-bracket { background: var(--surface); }
+.bracket-table tr.active-bracket > * { background: transparent; }
+.bracket-table tr.active-bracket > :first-child { box-shadow: inset 4px 0 0 var(--accent); padding-left: .8rem; }
+.bracket-table tr.active-bracket > :first-child { font-weight: 600; }
+
+/* Side by side */
+.compare-table th.hidden, .compare-table td.hidden { display: none; }
+.compare-table thead th { white-space: normal; min-width: 6.5rem; }
+.compare-table thead th:first-child { min-width: 0; }
+.compare-table tbody tr.section-row th {
+  font: 400 1.15rem/1 var(--poster); text-transform: uppercase; letter-spacing: .01em;
+  padding: 1.5rem 0 .55rem; border-bottom: 2px solid var(--rule);
+}
+.compare-table tbody tr.section-row:hover { background: transparent; }
+.compare-table tr.strong-row > * { font-weight: 600; }
+.compare-table tr.row-take-home > * { border-top: 3px solid var(--rule); }
+.compare-table tr.row-take-home td { font: 400 1.5rem/1 var(--poster); letter-spacing: .02em; color: var(--accent); }
+.compare-table tr.row-take-home th { font: 400 1.15rem/1.2 var(--poster); text-transform: uppercase; letter-spacing: .01em; }
+#out-th-a { color: var(--accent); }
+#out-th-b { color: var(--c-teal); }
+.compare-table tr.row-take-home td:nth-child(3) { color: var(--c-teal); }
+.compare-table td.diff-positive { color: var(--c-green); font-weight: 600; }
+.compare-table td.diff-negative { color: var(--c-red); font-weight: 600; }
+.compare-table tr.row-take-home td.diff-positive { color: var(--c-green); }
+.compare-table tr.row-take-home td.diff-negative { color: var(--c-red); }
+
+/* All provinces: sortable heads */
+.sort-button {
+  background: none; border: 0; padding: 0; cursor: pointer;
+  font: inherit; color: inherit; letter-spacing: inherit; text-transform: inherit; text-align: inherit;
+}
+.sort-button:hover { color: var(--accent); }
+.sort-button::after { content: " \2195"; font-family: var(--font); opacity: .45; }
+th[aria-sort="ascending"] .sort-button, th[aria-sort="descending"] .sort-button { color: var(--accent); }
+th[aria-sort="ascending"] .sort-button::after { content: " \25B2"; opacity: 1; font-size: .8em; }
+th[aria-sort="descending"] .sort-button::after { content: " \25BC"; opacity: 1; font-size: .8em; }
+.provinces-table tbody th { font-weight: 600; }
+.provinces-table td:nth-child(4) { font-weight: 600; color: var(--accent); }
+.note-cell { font-family: var(--font) !important; font-size: .8rem !important; color: var(--text-secondary); text-align: left !important; min-width: 8rem; white-space: nowrap; }
+.source-slot { display: block; }
+
+/* ============================================================
+   SOURCE LINKS, SOURCES BOX, FLAGS
+   ============================================================ */
+.src-links {
+  display: block; margin-top: .2rem;
+  font: 400 .74rem/1.35 var(--font); color: var(--text-secondary);
+  white-space: normal; text-align: left; letter-spacing: 0; text-transform: none;
+}
+.src-link { color: var(--accent); text-decoration: underline; text-decoration-thickness: 1px; }
+.src-link::after { content: "\2197"; font-size: .8em; margin-left: 1px; text-decoration: none; display: inline-block; }
+.src-link.src-secondary { color: var(--text-secondary); text-decoration-style: dotted; }
+.src-kind {
+  display: inline-block; margin-left: .35rem;
+  font: 600 .66rem/1 var(--font); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--c-green); border: 1.5px solid currentColor; padding: .22em .45em .2em; vertical-align: .1em;
+}
+.src-kind.src-secondary-tag { color: var(--c-amber); }
+
+.sources-box { margin-top: 2.4rem; border-top: 2px solid var(--rule); border-bottom: 1px solid var(--border); }
+.sources-box summary {
+  cursor: pointer; list-style: none; position: relative;
+  font-weight: 600; padding: .9rem 2rem .9rem 0;
+}
+.sources-box summary::-webkit-details-marker { display: none; }
+.sources-box summary::after { content: "+"; position: absolute; right: .2rem; top: 50%; transform: translateY(-50%); font: 400 1.5rem/1 var(--font); color: var(--accent); }
+.sources-box[open] summary::after { content: "\2013"; }
+.sources-list { list-style: none; padding-bottom: 1rem; font-size: .85rem; color: var(--text-secondary); }
+.sources-list li { padding: .55rem 0; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+
+/* Flags: amber callout; outlined badges */
+.flag-note { background: var(--t-amber); border-left: 6px solid var(--c-amber); padding: 1rem 1.2rem; margin-bottom: 1.8rem; }
+.flag-title { font-weight: 600; font-size: .92rem; margin-bottom: .6rem; }
+.flag-item { border-top: 1px solid color-mix(in srgb, var(--c-amber) 35%, transparent); }
+.flag-item summary { cursor: pointer; padding: .5rem 0; font-size: .9rem; overflow-wrap: anywhere; }
+.flag-item p { font-size: .88rem; color: var(--text); padding: 0 0 .7rem 0; }
+.flag-item code { font-size: .82rem; }
+.flag-badge {
+  display: inline-block;
+  font: 600 .68rem/1 var(--font); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--c-amber); border: 1.5px solid currentColor; padding: .28em .5em .25em; vertical-align: .1em;
+}
+.flag-badge.flag-unverified { color: var(--c-red); }
+.flag-badge.flag-conflict { color: var(--bg); background: var(--c-red); border-color: var(--c-red); }
+
+/* ============================================================
+   MATH TABS — calc steps, stat totals
+   ============================================================ */
+.math-section .section-heading { margin-bottom: 1.4rem; }
+.calculation-container { display: grid; gap: 1.1rem; border-top: 3px solid var(--rule); padding-top: 1.3rem; }
+.calc-step { min-width: 0; }
+.calc-step-mobile { display: flex; flex-wrap: wrap; align-items: stretch; gap: .5rem .7rem; }
+.calc-box {
+  --c: var(--text-secondary);
+  flex: 1 1 9rem; min-width: 0;
+  border: 1px solid var(--border); border-left: 4px solid var(--c);
+  padding: .6rem .8rem .7rem;
+}
+.calc-box-label { font: 600 .7rem/1.25 var(--font); letter-spacing: .1em; text-transform: uppercase; color: var(--text-secondary); }
+.calc-box-value { font: 400 1.5rem/1.1 var(--poster); letter-spacing: .02em; margin-top: .3rem; overflow-wrap: anywhere; }
+.calc-gross-income, .calc-adjustments { --c: var(--text-secondary); }
+.calc-credits { --c: var(--c-green); }
+.calc-pre-credit-tax { --c: var(--c-amber); }
+.calc-tax-rate { --c: var(--c-teal); }
+.calc-result { --c: var(--accent); }
+.calc-result .calc-box-value { color: var(--accent); }
+.calc-total-tax { background: var(--block); border-color: var(--block); color: var(--on-block); }
+.calc-total-tax .calc-box-label { color: var(--on-block); }
+.calc-operator { display: flex; align-items: center; justify-content: center; font: 400 1.8rem/1 var(--poster); color: var(--accent); min-width: .9rem; }
+.calc-step-note { font-size: .82rem; color: var(--text-secondary); margin-top: .45rem; line-height: 1.5; }
+.table-note { margin-top: .6rem; }
+
+.total-summary { margin-top: 2.4rem; }
+.total-main { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); border-top: 3px solid var(--rule); }
+.total-main-item { padding: 1rem 1.2rem 1.1rem 0; border-bottom: 1px solid var(--border); min-width: 0; }
+.total-label { font-size: .85rem; color: var(--text-secondary); }
+.total-main-value { font: 400 clamp(2.2rem, 4vw, 3rem)/1 var(--poster); color: var(--accent); margin-top: .35rem; overflow-wrap: anywhere; }
+
+/* Extras built by js (surtax, reductions, health premium tables) */
+#fed-extras > *, #prov-extras > * { margin-top: 2.4rem; }
+
+/* ============================================================
+   VERIFY — grid of jurisdictions, hairline link lists
+   ============================================================ */
+.verify-section { margin-top: 3.4rem; border-top: 3px solid var(--rule); padding-top: 2rem; }
+.verify-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); gap: 0 2rem; border-top: 3px solid var(--rule); }
+.verify-item { padding: 1rem 0 1.2rem; border-bottom: 1px solid var(--border); min-width: 0; }
+.verify-item h4 { font: 400 1.2rem/1.1 var(--poster); text-transform: uppercase; letter-spacing: .01em; margin-bottom: .5rem; }
+.verify-links { list-style: none; font-size: .88rem; }
+.verify-links li { padding: .3rem 0; overflow-wrap: anywhere; }
+.verify-secondary { font-size: .8rem; color: var(--text-secondary); margin-top: .5rem; overflow-wrap: anywhere; }
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+.disclaimer-section { border-top: 3px solid var(--rule); padding-block: 1.4rem 2.6rem; }
+.disclaimer-text { font-size: .86rem; line-height: 1.6; color: var(--text-secondary); max-width: 64rem; }
+.disclaimer-text strong { color: var(--text); }
+
+/* ============================================================
+   EXAMPLE PAGE (example.html)
+   ============================================================ */
+.scenario-buttons { display: flex; flex-wrap: wrap; gap: .6rem; margin: 1rem 0 1.5rem; }
+.scenario-button {
+  flex: 1 1 180px; min-height: 48px; padding: .8rem 1rem;
+  font: 400 1.1rem/1.1 var(--poster); text-transform: uppercase; letter-spacing: .01em;
+  background: transparent; color: var(--text); border: 2px solid var(--rule); border-radius: 0; cursor: pointer;
+}
+.scenario-button:hover { color: var(--accent); }
+.scenario-button[aria-pressed="true"] { background: var(--block); border-color: var(--block); color: var(--on-block); }
+.example-code {
+  font: 400 .85rem/1.6 var(--mono); background: var(--surface); color: var(--text);
+  border-left: 4px solid var(--accent); padding: 1rem 1.2rem; margin: 1rem 0 1.8rem;
+  overflow-x: auto; white-space: pre;
+}
+.main-content > .section-heading + .example-code { margin-top: 0; }
+
+/* ============================================================
+   WIDER SCREENS
+   ============================================================ */
+@media (min-width: 720px) {
+  /* One line: the title is ~12.9x its font size wide in Anton (measured), so size it from the content width. */
+  .main-title { font-size: min(calc((100vw - 2 * var(--edge) - 24px) / 13.2), calc(var(--page-max) / 13.2)); white-space: nowrap; }
+  .headline-grid:has(> #out-diff-headline:not(.hidden)) .headline-diff { grid-row: 2; grid-column: 1 / -1; }
+  .headline-grid:has(> #out-diff-headline:not(.hidden)) .diff-sentence {
+    grid-row: 2; grid-column: 2; align-self: stretch; display: flex; align-items: center; padding: 1.2rem 1.5rem 1.3rem 0; margin-top: .4rem;
+  }
+  .scenario-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 3rem; }
+  .headline-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .headline-diff { grid-column: 1 / -1; grid-template-columns: auto auto minmax(0, 1fr); }
+  .headline-diff .headline-label { grid-column: 1 / -1; }
+  .headline-grid:has(> #out-b-headline.hidden) .headline-a { grid-column: 1 / -1; }
+  .bar-row { grid-template-columns: 13rem minmax(0, 1fr); align-items: center; gap: 1rem; }
 }
 
-.table-wrapper {
-    overflow-x: auto;
-    border: none;
-    background: transparent;
+/* ============================================================
+   PHONES
+   ============================================================ */
+@media (max-width: 719px) {
+  .header { padding-block: .8rem .7rem; }
+  .main-title { margin-top: .6rem; }
+  .subtitle { font-size: .95rem; margin-top: .6rem; }
+  .setup-intro { font-size: .95rem; margin-bottom: .8rem; }
+  .main-content { padding-top: .8rem; }
+  .section-title { font-size: 1.8rem; padding: .4rem 0 .5rem; }
+  .input-group { padding-top: .7rem; }
+  .tab-navigation { gap: 0 .7rem; }
+  .tab-button { font-size: 1.05rem; padding-top: .65rem; }
+  .tab-button.tab-secondary { font-size: .7rem; letter-spacing: .06em; flex: 1 1 0; text-align: center; }
+  #provinces-tab { margin-right: 0; }
+  .input-row { grid-template-columns: minmax(0, 1fr) 8rem; gap: .8rem; }
+  .primary-button { width: 100%; justify-content: center; }
+  .headline-value { font-size: clamp(3.4rem, 19vw, 5rem); }
+  .bracket-table { font-size: .85rem; }
+  .bracket-table thead th { padding: .7rem .5rem .55rem; letter-spacing: .06em; }
+  .bracket-table td, .bracket-table tbody th, .bracket-table tfoot td { padding: .55rem .5rem; }
+  .bracket-table td { font-size: .8rem; }
+  .compare-table thead th { min-width: 4.4rem; }
+  .compare-table thead th:first-child, .compare-table tbody th { padding-right: .3rem; }
+  .bracket-table td:first-child { font-size: .85rem; }
+  .compare-table tr.row-take-home td { font-size: 1.15rem; }
+  #provinces-content .bracket-table-container::after {
+    content: "Swipe the table sideways for more columns \2192";
+    display: block; font-size: .75rem; color: var(--text-secondary); padding-top: .5rem;
+  }
+  .calc-operator { min-width: 100%; justify-content: flex-start; font-size: 1.4rem; padding-left: .3rem; }
+  .calc-box { flex-basis: 100%; }
 }
 
-.bracket-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.875rem;
-    line-height: 1.5;
-    margin: 0;
-}
-
-.bracket-table th,
-.bracket-table td {
-    padding: 0.875rem 1rem;
-    text-align: right;
-    border-bottom: 1px solid #e5e7eb; /* gray-200 */
-    vertical-align: middle;
-}
-
-.bracket-table th {
-    background-color: #f9fafb; /* gray-50 */
-    font-weight: 600;
-    color: #374151; /* gray-700 */
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-}
-
-.bracket-table th:first-child,
-.bracket-table td:first-child {
-    text-align: left;
-    padding-left: 1.5rem;
-}
-
-.bracket-table th:last-child,
-.bracket-table td:last-child {
-    padding-right: 1.5rem;
-}
-
-.bracket-table tbody tr {
-    transition: background-color 0.15s ease-in-out;
-}
-
-.bracket-table tbody tr:hover {
-    background-color: #f9fafb; /* gray-50 */
-}
-
-.bracket-table .total-row {
-    background-color: #f3f4f6 !important; /* gray-100 */
-    border-top: 2px solid #d1d5db; /* gray-300 */
-    font-weight: 600;
-    position: sticky;
-    bottom: 0;
-}
-
-.bracket-table .total-row td {
-    color: #111827; /* gray-900 */
-    padding-top: 1rem;
-    padding-bottom: 1rem;
-}
-
-/* Active bracket highlighting */
-.bracket-table tbody tr.active-bracket {
-    background-color: #fef3c7 !important; /* amber-100 */
-    font-weight: 500;
-}
-
-.bracket-table tbody tr.active-bracket:hover {
-    background-color: #fde68a !important; /* amber-200 */
-}
-
-/* Dark mode styles for bracket tables */
-.dark .bracket-table-container {
-    background: #1e293b; /* slate-800 */
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
-}
-
-.dark .bracket-table th {
-    background-color: #334155; /* slate-700 */
-    color: #e2e8f0; /* slate-200 */
-    border-bottom-color: #475569; /* slate-600 */
-}
-
-.dark .bracket-table td {
-    color: #cbd5e1; /* slate-300 */
-    border-bottom-color: #475569; /* slate-600 */
-}
-
-.dark .bracket-table tbody tr:hover {
-    background-color: #334155; /* slate-700 */
-}
-
-.dark .bracket-table .total-row {
-    background-color: #475569 !important; /* slate-600 */
-    border-top-color: #64748b; /* slate-500 */
-}
-
-.dark .bracket-table .total-row td {
-    color: #f1f5f9; /* slate-100 */
-}
-
-.dark .bracket-table tbody tr.active-bracket {
-    background-color: #451a03 !important; /* amber-900 */
-}
-
-.dark .bracket-table tbody tr.active-bracket:hover {
-    background-color: #78350f !important; /* amber-800 */
-}
-
-/* Mobile responsive adjustments for bracket tables */
-@media (max-width: 768px) {
-    .bracket-table-container {
-        margin-bottom: 2rem;
-        border-radius: 0.5rem;
-    }
-    
-    .bracket-table-container h3 {
-        font-size: 1.125rem;
-        padding: 1rem 1rem 0.5rem;
-    }
-    
-    .bracket-table {
-        font-size: 0.75rem;
-    }
-    
-    .bracket-table th,
-    .bracket-table td {
-        padding: 0.5rem 0.75rem;
-    }
-    
-    .bracket-table th:first-child,
-    .bracket-table td:first-child {
-        padding-left: 1rem;
-    }
-    
-    .bracket-table th:last-child,
-    .bracket-table td:last-child {
-        padding-right: 1rem;
-    }
-    
-    .bracket-table th {
-        font-size: 0.7rem;
-    }
-}
-
-/* Color coding for different tax types */
-.bracket-table-container:has(#federal-bracket-table) h3 {
-    color: #2563eb; /* blue-600 */
-}
-
-.bracket-table-container:has(#maryland-bracket-table) h3 {
-    color: #16a34a; /* green-600 */
-}
-
-.bracket-table-container:has(#anne-arundel-bracket-table) h3 {
-    color: #9333ea; /* purple-600 */
-}
-
-.dark .bracket-table-container:has(#federal-bracket-table) h3 {
-    color: #60a5fa; /* blue-400 */
-}
-
-.dark .bracket-table-container:has(#maryland-bracket-table) h3 {
-    color: #4ade80; /* green-400 */
-}
-
-.dark .bracket-table-container:has(#anne-arundel-bracket-table) h3 {
-    color: #c084fc; /* purple-400 */
-}
-
-/* Disclaimer Section */
-.disclaimer-section {
-    margin-top: 3rem;
-    padding: 1.5rem;
-    background-color: #f1f5f9; /* slate-100 */
-    border-radius: 0.5rem;
-    border: 1px solid #e2e8f0; /* slate-200 */
-}
-
-.disclaimer-content {
-    text-align: center;
-}
-
-.disclaimer-text {
-    font-size: 0.875rem; /* text-sm */
-    color: #64748b; /* slate-500 */
-    line-height: 1.5;
-    margin: 0;
-}
-
-.disclaimer-text strong {
-    color: #475569; /* slate-600 */
-}
-
-/* Dark mode disclaimer styles */
-.dark .disclaimer-section {
-    background-color: #1e293b; /* slate-800 */
-    border-color: #334155; /* slate-700 */
-}
-
-.dark .disclaimer-text {
-    color: #94a3b8; /* slate-400 */
-}
-
-.dark .disclaimer-text strong {
-    color: #cbd5e1; /* slate-300 */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .tab-content.active { animation: none; }
+  .tax-bar { transition: none; }
 }

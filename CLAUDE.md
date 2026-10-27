@@ -1,7 +1,8 @@
 # Working in this repository
 
-A static tax calculator: federal, Maryland state, and Anne Arundel County
-income tax, shown as a calculator plus step-by-step "tax math" tabs. Plain
+A static Canadian income tax calculator for tax year 2026: federal plus each
+province and territory, with payroll deductions and take-home pay, shown as a
+calculator plus step-by-step "tax math" tabs. Plain
 HTML, CSS, and ES6 modules. No build, no dependencies, no `package.json`.
 
 ```bash
@@ -18,6 +19,7 @@ module imports and shows a page of zeros.
 | changing a bracket, rate, or deduction, or adding a jurisdiction | [docs/tax-rules.md](docs/tax-rules.md) |
 | changing UI, a tab, or how modules talk to each other | [docs/architecture.md](docs/architecture.md) |
 | about to say a change works | [docs/testing.md](docs/testing.md) |
+| writing or reviewing a check, or adding test coverage | [docs/learnings/test-methodology-and-coverage.md](docs/learnings/test-methodology-and-coverage.md) |
 | hitting zeros, a blank tab, or a console error | [docs/troubleshooting.md](docs/troubleshooting.md) |
 | editing anything in `docs/` | [docs/CLAUDE.md](docs/CLAUDE.md) |
 
@@ -25,16 +27,24 @@ Everything else is reachable from [docs/index.md](docs/index.md).
 
 ## Rules that cost the most when missed
 
-**`js/taxCalculator.js` never touches the DOM.** It is the only module you can
-run in Node, and that is the only automated check this repo has. A
-`document` reference in it breaks the check in [docs/testing.md](docs/testing.md).
+**`js/taxCalculator.js` and `js/data/` never touch the DOM.** They are the
+modules you can run in Node, and that is the only automated check this repo
+has. A `document` reference in either breaks the check in
+[docs/testing.md](docs/testing.md).
+
+**Rates live in `js/data/<code>.js`, one module per jurisdiction. The
+arithmetic lives in `js/taxCalculator.js`.** A rate typed into the calculator
+or into `index.html` has no source and no flag, and the next tax-year update
+misses it. A value you cannot confirm from an official source gets a `flags`
+entry, not a guess. See [docs/tax-rules.md](docs/tax-rules.md).
 
 **DOM ids are the interface between `index.html` and the modules.** Each
 module looks its elements up by id, and a renamed id does not throw: the
 lookup returns `null` and that part of the page stops updating. Grep `js/` for
-an id before you rename or delete it in `index.html`.
+an id before you rename or delete it in `index.html`. Tab ids are built from
+`TAB_NAMES` in `js/tabManager.js`, so grep for the tab name, not the full id.
 
-**Run the Node check after any change to `js/taxCalculator.js`.** There is no
+**Run the Node check after any change to `js/taxCalculator.js` or `js/data/`.** There is no
 test framework and no CI. A wrong bracket renders a plausible number, so
 nobody notices by looking.
 

@@ -1,189 +1,46 @@
-# Federal Income Tax Calculator - Modular Architecture
+# Le prix de respirer: Canadian income tax calculator
 
-This calculator has been refactored into a modular architecture where each section can be modified or replaced independently.
+A static calculator for Canadian income tax, tax year 2026. On the Setup tab,
+enter an employment income, a province or territory, and an optional "other
+deductions" amount such as an RRSP contribution. Switch on a second scenario to
+compare two salaries or two places. The Take-home tab (`output`) leads with take-home pay for
+each scenario and the difference between them, then a side-by-side table of
+federal tax, provincial or territorial tax, payroll deductions (CPP or QPP, EI,
+QPIP in Quebec), and the effective and marginal rates. The same salary can also
+be compared across all 13 provinces and territories, with the GST, HST, PST and
+QST that apply in each. The tax-math tabs show each step for federal tax,
+provincial tax and payroll.
 
-Contributor docs (running it, architecture, tax rules, testing) are in [docs/](docs/index.md).
+It is a single filer with employment income. Spousal, dependant and other
+personal credits, refundable credits and benefits, and cost-of-living figures
+are out of scope. See [docs/tax-rules.md](docs/tax-rules.md).
 
-## Project Structure
+## Provisional values and verifying them
 
-```
-├── index.html          # Main HTML file
-├── js/
-│   ├── main.js          # Main application coordinator
-│   ├── taxCalculator.js # Tax calculation logic
-│   ├── uiControls.js    # Input controls and form handling
-│   ├── displayManager.js # Display updates and visualization
-│   └── themeManager.js  # Dark/light mode functionality
-└── README.md
-```
+Every rate and threshold lives in `js/data/` with its source URL and retrieval
+date. A value that could not be confirmed from an official 2026 source carries
+an entry in that module's `flags` list, marked `PROVISIONAL`, `UNVERIFIED` or
+`CONFLICT`. The tax-math tabs list the flags for the jurisdiction on screen,
+and the "Verify these numbers" section of the Take-home tab links to the official
+pages each figure came from. Check a figure there before relying on it. This is
+an estimate for comparing options, not tax advice or a filing tool, and the
+page footer says so.
 
-## Modular Components
+## Run it
 
-### 1. TaxCalculator (`js/taxCalculator.js`)
-Handles all tax calculation logic including:
-- Federal tax bracket calculations
-- Standard deductions
-- AGI and taxable income computations
-- Baseline scenario calculations
+There is nothing to install, no build and no dependencies. Serve the folder
+over HTTP and open it:
 
-**Usage:**
-```javascript
-import { TaxCalculator } from './js/taxCalculator.js';
-
-const calculator = new TaxCalculator();
-const result = calculator.calculateTaxes({
-    income: 75000,
-    adjustments: 0,
-    deductions: 0,
-    credits: 2000,
-    filingStatus: 2 // 1 = single, 2 = married
-});
+```bash
+python3 -m http.server 8000   # then open http://localhost:8000
 ```
 
-### 2. UIControls (`js/uiControls.js`)
-Manages all input controls and form interactions:
-- Slider and input field synchronization
-- Form value getters and setters
-- Input validation
-- Event handling
+Opening `index.html` as `file://` shows a page of zeros, because browsers block
+module imports from `file://`.
 
-**Usage:**
-```javascript
-import { UIControls } from './js/uiControls.js';
+## For contributors
 
-const controls = new UIControls(() => {
-    // This callback runs when any input changes
-    console.log('Input changed:', controls.getValues());
-});
-```
-
-### 3. DisplayManager (`js/displayManager.js`)
-Handles all display updates and visualizations:
-- Currency formatting
-- Visual calculation flow updates
-- Baseline comparison displays
-- Income breakdown visualization
-
-**Usage:**
-```javascript
-import { DisplayManager } from './js/displayManager.js';
-
-const display = new DisplayManager();
-display.updateAll({
-    customCalculation: calculationResults,
-    baselineCalculation: baselineResults,
-    inputs: inputValues,
-    standardDeduction: 29200
-});
-```
-
-### 4. ThemeManager (`js/themeManager.js`)
-Manages dark/light mode functionality:
-- Theme persistence
-- System preference detection
-- Theme toggle functionality
-
-**Usage:**
-```javascript
-import { ThemeManager } from './js/themeManager.js';
-
-const theme = new ThemeManager();
-theme.setTheme('dark'); // or 'light'
-```
-
-### 5. Main Application (`js/main.js`)
-Coordinates all components and manages application state:
-- Initializes all modules
-- Handles inter-component communication
-- Provides global application API
-
-## Benefits of Modular Architecture
-
-### 1. **Independent Development**
-- Each module can be developed and tested separately
-- Different developers can work on different sections simultaneously
-- Easier to track changes and debug specific functionality
-
-### 2. **Easy Customization**
-- Replace tax calculation logic without touching UI code
-- Swap out visualization components independently
-- Modify input controls without affecting calculations
-
-### 3. **Maintainability**
-- Clear separation of concerns
-- Smaller, focused files are easier to understand
-- Changes to one module don't affect others
-
-### 4. **Testability**
-- Each module can be unit tested independently
-- Mock dependencies easily for isolated testing
-- Clear interfaces make testing straightforward
-
-## Example: Replacing the Tax Calculator
-
-To implement a different tax system, you only need to replace the `TaxCalculator` class:
-
-```javascript
-// Create a new calculator (e.g., for a different country)
-class UKTaxCalculator {
-    calculateTaxes(params) {
-        // Implement UK tax logic here
-        return {
-            agi: /* calculated value */,
-            taxableIncome: /* calculated value */,
-            // ... other properties
-        };
-    }
-    
-    getStandardDeduction() {
-        return 12570; // UK personal allowance
-    }
-}
-
-// Replace in main.js:
-// this.taxCalculator = new TaxCalculator();
-this.taxCalculator = new UKTaxCalculator();
-```
-
-## Example: Custom Display Component
-
-To create a different visualization:
-
-```javascript
-class ChartDisplayManager {
-    updateVisualizationBar(params) {
-        // Instead of a bar chart, show a pie chart
-        this.renderPieChart(params);
-    }
-    
-    renderPieChart(params) {
-        // Custom chart implementation
-    }
-}
-
-// Replace in main.js:
-// this.displayManager = new DisplayManager();
-this.displayManager = new ChartDisplayManager();
-```
-
-## Development Guidelines
-
-### Adding New Features
-1. Determine which module the feature belongs to
-2. If it doesn't fit existing modules, create a new one
-3. Update the main application to use the new module
-4. Maintain the same interface pattern for consistency
-
-### Modifying Existing Features
-1. Locate the appropriate module
-2. Make changes only within that module
-3. Ensure the public interface remains compatible
-4. Test that other modules still work correctly
-
-### Creating New Modules
-1. Export a class with clear public methods
-2. Keep internal implementation private
-3. Document the public interface
-4. Follow the same patterns as existing modules
-
-This modular architecture makes the calculator flexible, maintainable, and extensible while preserving all existing functionality.
+Everything about changing it is in [docs/](docs/index.md): the architecture,
+how to update the tax data, the tests, and troubleshooting. The calculator
+module `js/taxCalculator.js` has no DOM access and runs in Node, which is how
+it is checked.

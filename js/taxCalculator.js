@@ -1,405 +1,644 @@
 /**
- * Tax Calculation Module
- * Handles all tax calculation logic including federal tax brackets and computations
+ * Canadian income tax and payroll calculator, tax year 2026.
+ *
+ * DOM-free: this is the only module Node can import, and the repo's checks
+ * depend on that. Every number comes from js/data/<code>.js; this file holds
+ * the arithmetic only. Every schema field must be present in every data
+ * module: null means "not applicable", an absent field throws.
+ *
+ * Order of operations for each jurisdiction:
+ *   bracket tax
+ *   - non-refundable credits x jurisdiction credit rate   (floor 0)
+ *   + surtax (base: tax after credits)
+ *   - tax reduction / low-income reduction               (floor 0)
+ *   - Quebec abatement (federal only, Quebec residents)
+ *   + health premium / contribution
  */
+import defaultData from './data/index.js';
+
+const YEAR = 2026;
+
+/** Payroll items a jurisdiction may list in credits.payrollCredits. */
+const PAYROLL_CREDIT_ITEMS = ['cppBase', 'ei', 'qppBase', 'eiQuebec', 'qpip'];
+
+/**
+ * `special` rules the engine implements. Any other name throws.
+ * 'yukonCanadaEmploymentCredit' documents the generic canadaEmploymentAmount
+ * rule (credited in any jurisdiction that has the field) and adds nothing.
+ */
+const ALLOWED_SPECIALS = [
+    'QC deduction for workers',
+    'QC deduction for enhanced QPP contributions',
+    'yukonCanadaEmploymentCredit'
+];
+
+const SURTAX_BASES = ['afterCredits'];
+const TAX_REDUCTION_KINDS = ['twiceBasicMinusTax'];
+const LOW_INCOME_KINDS = ['baseMinusIncomeRate', 'lift'];
+
+class DataError extends Error {
+    constructor(code, msg) {
+        super(`[js/data/${code}.js] ${msg}`);
+        this.name = 'DataError';
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Validation helpers: a missing or malformed required field throws, never 0.
+// ---------------------------------------------------------------------------
+
+function req(obj, path, code) {
+    let cur = obj;
+    for (const key of path.split('.')) {
+        if (cur === null || cur === undefined || !(key in cur) || cur[key] === undefined) {
+            throw new DataError(code, `missing required field '${path}'`);
+        }
+        cur = cur[key];
+    }
+    return cur;
+}
+
+function num(obj, path, code, { min = 0, max = Infinity } = {}) {
+    const v = req(obj, path, code);
+    if (typeof v !== 'number' || Number.isNaN(v)) {
+        throw new DataError(code, `'${path}' must be a number, got ${JSON.stringify(v)}`);
+    }
+    if (v < min || v > max) {
+        throw new DataError(code, `'${path}' = ${v} outside [${min}, ${max}]`);
+    }
+    return v;
+}
+
+const rate = (obj, path, code) => num(obj, path, code, { min: 0, max: 1 });
+
+/**
+ * A field that must be PRESENT but may be null ("not applicable").
+ * An absent or undefined field throws: a dropped key must never silently
+ * remove a tax.
+ */
+function nullable(obj, path, code) {
+    const parts = path.split('.');
+    const last = parts.pop();
+    const parent = parts.length ? req(obj, parts.join('.'), code) : obj;
+    if (parent === null || typeof parent !== 'object') throw new DataError(code, `'${parts.join('.')}' must be an object`);
+    if (!(last in parent) || parent[last] === undefined) {
+        throw new DataError(code, `missing field '${path}' (use null when not applicable, never omit)`);
+    }
+    return parent[last];
+}
+
+/** A present array (may be empty). */
+function arr(obj, path, code) {
+    const v = req(obj, path, code);
+    if (!Array.isArray(v)) throw new DataError(code, `'${path}' must be an array`);
+    return v;
+}
+
+/** A present field that is null or a number in [min, max]. */
+function numOrNull(obj, path, code, opts) {
+    return nullable(obj, path, code) === null ? null : num(obj, path, code, opts);
+}
+
+const TOP_LEVEL_KEYS = ['code', 'name', 'year', 'brackets', 'credits', 'surtax', 'healthPremium', 'taxReduction',
+    'lowIncomeReduction', 'abatement', 'salesTax', 'costOfLiving', 'special', 'sources', 'flags'];
+const CREDIT_KEYS = ['creditRate', 'basicPersonalAmount', 'bpaPhaseOut', 'canadaEmploymentAmount', 'cppQppEiCredit',
+    'payrollCredits', 'payrollCreditsQuebecResident', 'other'];
+
+/** Unknown keys throw, so a misspelt optional field (e.g. 'surTax') can't be silently ignored. */
+function checkKeys(obj, allowed, code, where) {
+    for (const k of Object.keys(obj)) {
+        // Descriptive text keys (e.g. 'note') carry no numbers and are ignored.
+        if (typeof obj[k] === 'string') continue;
+        if (!allowed.includes(k)) throw new DataError(code, `unknown field '${where}${k}' (not in the frozen schema)`);
+    }
+}
+
+function validateBrackets(brackets, code, path = 'brackets') {
+    if (!Array.isArray(brackets) || brackets.length === 0) {
+        throw new DataError(code, `'${path}' must be a non-empty array`);
+    }
+    let prev = 0;
+    brackets.forEach((b, i) => {
+        if (!Array.isArray(b) || b.length !== 2) throw new DataError(code, `${path}[${i}] must be [upperLimit, rate]`);
+        const [limit, r] = b;
+        if (typeof limit !== 'number' || Number.isNaN(limit) || !(limit > prev)) {
+            throw new DataError(code, `${path}[${i}] upper limit ${limit} must be a number > ${prev}`);
+        }
+        if (typeof r !== 'number' || Number.isNaN(r) || r < 0 || r > 1) {
+            throw new DataError(code, `${path}[${i}] rate ${r} must be a decimal in [0, 1]`);
+        }
+        prev = limit;
+    });
+    if (brackets[brackets.length - 1][0] !== Infinity) {
+        throw new DataError(code, `last row of '${path}' must have upper limit Infinity`);
+    }
+}
+
+function validateSpecials(d, code) {
+    const special = arr(d, 'special', code);
+    for (const s of special) {
+        if (!s || typeof s.name !== 'string') throw new DataError(code, `special entry without a name`);
+        if (!ALLOWED_SPECIALS.includes(s.name)) {
+            throw new DataError(code, `unknown special '${s.name}': the engine implements only ${ALLOWED_SPECIALS.join(' | ')}; add the rule to ALLOWED_SPECIALS and implement it in the calculator first`);
+        }
+        if (typeof s.how !== 'string') throw new DataError(code, `special '${s.name}' has no 'how' text`);
+        if (!s.params || typeof s.params !== 'object' || Array.isArray(s.params)) throw new DataError(code, `special '${s.name}' has no 'params' object`);
+        if (s.name === 'QC deduction for workers') workerDeductionParams({ special: [s] }, code);
+    }
+    return special;
+}
+
+const hasSpecial = (d, name) => Array.isArray(d.special) && d.special.some(s => s.name === name);
+
+/**
+ * Read the numeric parameters of the QC deduction for workers from the
+ * structured `params: {rate, cap}`. The prose in `how` is documentation only
+ * and is never read. A missing or invalid param throws, so no rate is ever
+ * hard-coded here.
+ */
+function workerDeductionParams(d, code) {
+    const s = d.special.find(x => x.name === 'QC deduction for workers');
+    const p = s.params;
+    if (!p || typeof p.rate !== 'number' || typeof p.cap !== 'number') {
+        throw new DataError(code, `special 'QC deduction for workers': params must be {rate: number, cap: number}`);
+    }
+    if (!(p.rate > 0 && p.rate < 1) || !(p.cap > 0) || !Number.isFinite(p.cap)) {
+        throw new DataError(code, `special 'QC deduction for workers': bad rate ${p.rate} or cap ${p.cap}`);
+    }
+    return { rate: p.rate, cap: p.cap };
+}
+
+function validateJurisdiction(d, code, { federal = false } = {}) {
+    if (!d || typeof d !== 'object') throw new DataError(code, 'module did not load (no default export)');
+    req(d, 'code', code);
+    req(d, 'name', code);
+    if (req(d, 'year', code) !== YEAR) throw new DataError(code, `year must be ${YEAR}`);
+    checkKeys(d, TOP_LEVEL_KEYS, code, '');
+    checkKeys(req(d, 'credits', code), CREDIT_KEYS, code, 'credits.');
+    // Fields that are data, not arithmetic, must still be present.
+    arr(d, 'sources', code);
+    arr(d, 'flags', code);
+    nullable(d, 'costOfLiving', code);
+    req(d, 'salesTax', code);
+    for (const k of ['gst', 'pst', 'hst', 'qst']) numOrNull(d, `salesTax.${k}`, code, { min: 0, max: 1 });
+    nullable(d, 'salesTax.note', code);
+    const ppe = req(d, 'credits.cppQppEiCredit', code);
+    if (typeof ppe !== 'boolean') throw new DataError(code, `credits.cppQppEiCredit must be true or false`);
+    validateBrackets(req(d, 'brackets', code), code);
+    rate(d, 'credits.creditRate', code);
+    num(d, 'credits.basicPersonalAmount', code);
+    const po = nullable(d, 'credits.bpaPhaseOut', code);
+    if (po !== null) {
+        num(d, 'credits.bpaPhaseOut.start', code);
+        num(d, 'credits.bpaPhaseOut.end', code);
+        num(d, 'credits.bpaPhaseOut.minAmount', code);
+        if (!(po.end > po.start)) throw new DataError(code, `bpaPhaseOut.end must exceed start`);
+    }
+    const cea = nullable(d, 'credits.canadaEmploymentAmount', code);
+    if (cea !== null) num(d, 'credits.canadaEmploymentAmount', code);
+    const pc = arr(d, 'credits.payrollCredits', code);
+    for (const item of pc) {
+        if (!PAYROLL_CREDIT_ITEMS.includes(item)) throw new DataError(code, `unknown payroll credit item '${item}'`);
+    }
+    if (ppe !== pc.length > 0) throw new DataError(code, `credits.cppQppEiCredit (${ppe}) contradicts credits.payrollCredits (${JSON.stringify(pc)})`);
+    if (federal) {
+        const pcq = req(d, 'credits.payrollCreditsQuebecResident', code);
+        if (!Array.isArray(pcq)) throw new DataError(code, `credits.payrollCreditsQuebecResident must be an array`);
+        for (const item of pcq) {
+            if (!PAYROLL_CREDIT_ITEMS.includes(item)) throw new DataError(code, `unknown payroll credit item '${item}'`);
+        }
+        rate(d, 'abatement.quebec', code);
+    }
+    const other = arr(d, 'credits.other', code);
+    other.forEach((o, i) => {
+        if (!o || typeof o.name !== 'string') throw new DataError(code, `credits.other[${i}] needs a name`);
+        num(o, 'amount', `${code} credits.other[${i}]`);
+    });
+
+    const surtax = nullable(d, 'surtax', code);
+    if (surtax !== null) {
+        if (!SURTAX_BASES.includes(req(d, 'surtax.base', code))) throw new DataError(code, `surtax.base must be one of ${SURTAX_BASES}`);
+        const tiers = req(d, 'surtax.tiers', code);
+        if (!Array.isArray(tiers) || tiers.length === 0) throw new DataError(code, `surtax.tiers must be a non-empty array`);
+        tiers.forEach((t, i) => { num(t, 'threshold', `${code} surtax.tiers[${i}]`); rate(t, 'rate', `${code} surtax.tiers[${i}]`); });
+    }
+    const tr = nullable(d, 'taxReduction', code);
+    if (tr !== null) {
+        if (!TAX_REDUCTION_KINDS.includes(req(d, 'taxReduction.kind', code))) throw new DataError(code, `taxReduction.kind must be one of ${TAX_REDUCTION_KINDS}`);
+        num(d, 'taxReduction.basicAmount', code);
+    }
+    const lir = nullable(d, 'lowIncomeReduction', code);
+    if (lir !== null) {
+        const kind = req(d, 'lowIncomeReduction.kind', code);
+        if (!LOW_INCOME_KINDS.includes(kind)) throw new DataError(code, `lowIncomeReduction.kind must be one of ${LOW_INCOME_KINDS}`);
+        req(d, 'lowIncomeReduction.name', code);
+        num(d, 'lowIncomeReduction.baseAmount', code);
+        num(d, 'lowIncomeReduction.phaseOutStart', code);
+        rate(d, 'lowIncomeReduction.phaseOutRate', code);
+        const er = nullable(d, 'lowIncomeReduction.earningsRate', code);
+        if (kind === 'lift' || er !== null) rate(d, 'lowIncomeReduction.earningsRate', code);
+    }
+    const hp = nullable(d, 'healthPremium', code);
+    if (hp !== null) {
+        req(d, 'healthPremium.name', code);
+        const tiers = req(d, 'healthPremium.tiers', code);
+        if (!Array.isArray(tiers) || tiers.length === 0) throw new DataError(code, `healthPremium.tiers must be a non-empty array`);
+        tiers.forEach((t, i) => {
+            const p = `${code} healthPremium.tiers[${i}]`;
+            num(t, 'from', p);
+            const to = nullable(t, 'to', p);
+            if (to !== null && to !== Infinity) num(t, 'to', p);
+            num(t, 'base', p);
+            rate(t, 'rate', p);
+            const mx = nullable(t, 'max', p);
+            if (mx !== null) num(t, 'max', p);
+        });
+    }
+    validateSpecials(d, code);
+    if (hasSpecial(d, 'QC deduction for workers')) workerDeductionParams(d, code);
+}
+
+function validatePayroll(p) {
+    const code = 'payroll';
+    if (!p || typeof p !== 'object') throw new DataError(code, 'module did not load');
+    if (req(p, 'year', code) !== YEAR) throw new DataError(code, `year must be ${YEAR}`);
+    if (req(p, 'code', code) !== 'payroll') throw new DataError(code, `code must be 'payroll'`);
+    req(p, 'name', code);
+    arr(p, 'sources', code);
+    arr(p, 'flags', code);
+    for (const plan of ['cpp', 'qpp']) {
+        const r = rate(p, `${plan}.rate`, code);
+        const b = rate(p, `${plan}.baseRate`, code);
+        const e = rate(p, `${plan}.enhancedRate`, code);
+        if (Math.abs(b + e - r) > 1e-9) throw new DataError(code, `${plan}.baseRate + enhancedRate != rate`);
+        num(p, `${plan}.basicExemption`, code);
+        num(p, `${plan}.ympe`, code);
+        const mx = num(p, `${plan}.maxContribution`, code);
+        const mb = num(p, `${plan}.maxBaseContribution`, code);
+        // Consistency: both caps must equal their rate x (ympe - basicExemption) to the cent.
+        const span = p[plan].ympe - p[plan].basicExemption;
+        if (Math.abs(r * span - mx) > 0.01) throw new DataError(code, `${plan}.maxContribution ${mx} != rate x (ympe - basicExemption) ${(r * span).toFixed(2)}`);
+        if (Math.abs(b * span - mb) > 0.01) throw new DataError(code, `${plan}.maxBaseContribution ${mb} != baseRate x (ympe - basicExemption) ${(b * span).toFixed(2)}`);
+        rate(p, `${plan}2.rate`, code);
+        num(p, `${plan}2.yampe`, code);
+        num(p, `${plan}2.max`, code);
+        if (!(p[`${plan}2`].yampe > p[plan].ympe)) throw new DataError(code, `${plan}2.yampe must exceed ${plan}.ympe`);
+    }
+    for (const ei of ['ei', 'eiQuebec']) {
+        rate(p, `${ei}.rate`, code);
+        num(p, `${ei}.mie`, code);
+        num(p, `${ei}.max`, code);
+    }
+    rate(p, 'qpip.employeeRate', code);
+    num(p, 'qpip.mie', code);
+    num(p, 'qpip.max', code);
+    validateSpecials(p, code);
+}
+
+// ---------------------------------------------------------------------------
+// Pure arithmetic
+// ---------------------------------------------------------------------------
+
+/** Per-bracket breakdown of tax on `income`. */
+function bracketBreakdown(income, brackets) {
+    const rows = [];
+    let prev = 0;
+    let total = 0;
+    for (const [limit, r] of brackets) {
+        const inBracket = Math.max(0, Math.min(income, limit) - prev);
+        const tax = inBracket * r;
+        total += tax;
+        rows.push({ from: prev, to: limit, rate: r, taxableInBracket: inBracket, tax });
+        prev = limit;
+    }
+    return { rows, total };
+}
+
+const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
+
+function bpaFor(credits, netIncome) {
+    const bpa = credits.basicPersonalAmount;
+    const po = credits.bpaPhaseOut;
+    if (!po) return bpa;
+    const frac = clamp((netIncome - po.start) / (po.end - po.start), 0, 1);
+    return bpa - (bpa - po.minAmount) * frac;
+}
+
+function healthPremiumFor(hp, taxableIncome) {
+    if (!hp) return 0;
+    let premium = 0;
+    for (const t of hp.tiers) {
+        const upper = t.to === null || t.to === undefined ? Infinity : t.to;
+        if (taxableIncome > t.from && taxableIncome <= upper) {
+            premium = t.base + t.rate * (taxableIncome - t.from);
+            if (t.max !== null && t.max !== undefined) premium = Math.min(premium, t.max);
+        }
+    }
+    return Math.max(0, premium);
+}
+
+/** Payroll contributions for one person (annual, one employer). */
+function computePayroll(p, income, quebec) {
+    const plan = quebec ? p.qpp : p.cpp;
+    const plan2 = quebec ? p.qpp2 : p.cpp2;
+    const pensionable = Math.max(0, Math.min(income, plan.ympe) - plan.basicExemption);
+    const total = Math.min(plan.rate * pensionable, plan.maxContribution);
+    // Split by rate so base + enhanced == total even when the cap binds.
+    const base = total * plan.baseRate / plan.rate;
+    const enhanced = total - base;
+    const second = Math.min(plan2.rate * Math.max(0, Math.min(income, plan2.yampe) - plan.ympe), plan2.max);
+    const eiData = quebec ? p.eiQuebec : p.ei;
+    const ei = Math.min(eiData.rate * Math.min(income, eiData.mie), eiData.max);
+    const qpip = quebec ? Math.min(p.qpip.employeeRate * Math.min(income, p.qpip.mie), p.qpip.max) : 0;
+    return {
+        plan: quebec ? 'QPP' : 'CPP',
+        pension: { total, base, enhanced, pensionableEarnings: pensionable, rate: plan.rate, baseRate: plan.baseRate, enhancedRate: plan.enhancedRate },
+        pension2: { total: second, rate: plan2.rate, earnings: Math.max(0, Math.min(income, plan2.yampe) - plan.ympe) },
+        ei: { total: ei, rate: eiData.rate, insurableEarnings: Math.min(income, eiData.mie), quebecRate: quebec },
+        qpip: { total: qpip, rate: quebec ? p.qpip.employeeRate : 0 },
+        total: total + second + ei + qpip
+    };
+}
+
+const PAYROLL_CREDIT_LABEL = {
+    cppBase: 'CPP base contributions',
+    qppBase: 'QPP base contributions',
+    ei: 'EI premiums',
+    eiQuebec: 'EI premiums (Quebec rate)',
+    qpip: 'QPIP premiums'
+};
+
+function payrollCreditAmount(item, pay) {
+    switch (item) {
+        case 'cppBase': return pay.plan === 'CPP' ? pay.pension.base : 0;
+        case 'qppBase': return pay.plan === 'QPP' ? pay.pension.base : 0;
+        case 'ei': return pay.ei.quebecRate ? 0 : pay.ei.total;
+        case 'eiQuebec': return pay.ei.quebecRate ? pay.ei.total : 0;
+        case 'qpip': return pay.qpip.total;
+        default: throw new Error(`unknown payroll credit item ${item}`);
+    }
+}
+
+/**
+ * One jurisdiction's tax, in the order of operations at the top of this file.
+ * ctx: { income, netIncome, taxableIncome, pay, payrollCredits, quebecResident, federal, fedAbatement }
+ */
+function computeJurisdiction(d, ctx) {
+    const c = d.credits;
+    const { rows, total: bracketTax } = bracketBreakdown(ctx.taxableIncome, d.brackets);
+
+    // Non-refundable credits (amount x credit rate).
+    const creditsDetail = [];
+    const add = (name, amount) => creditsDetail.push({ name, amount, rate: c.creditRate, credit: amount * c.creditRate });
+    add('Basic personal amount', bpaFor(c, ctx.netIncome));
+    for (const item of ctx.payrollCredits) {
+        const amt = payrollCreditAmount(item, ctx.pay);
+        if (amt > 0) add(PAYROLL_CREDIT_LABEL[item], amt);
+    }
+    // Any jurisdiction with canadaEmploymentAmount credits min(employment income, amount).
+    // (yukonCanadaEmploymentCredit is documentation of this rule; it adds nothing more.)
+    if (c.canadaEmploymentAmount !== null) add('Canada employment amount', Math.min(ctx.income, c.canadaEmploymentAmount));
+    for (const o of c.other) add(o.name, o.amount);
+    const creditsTotal = creditsDetail.reduce((s, x) => s + x.credit, 0);
+    const afterCredits = Math.max(0, bracketTax - creditsTotal);
+
+    // Surtax on tax after credits.
+    let surtax = 0;
+    if (d.surtax) {
+        for (const t of d.surtax.tiers) surtax += t.rate * Math.max(0, afterCredits - t.threshold);
+    }
+    const afterSurtax = afterCredits + surtax;
+
+    // Tax reduction / low-income reduction, floor 0.
+    const reductions = [];
+    let remaining = afterSurtax;
+    if (d.taxReduction) {
+        const tr = d.taxReduction;
+        // ON Tax Reduction: max(0, 2 x basicAmount - tax after credits and surtax).
+        const potential = Math.max(0, 2 * tr.basicAmount - afterSurtax);
+        const applied = Math.min(remaining, potential);
+        remaining -= applied;
+        reductions.push({ name: tr.name || 'Tax reduction', kind: tr.kind, potential, amount: applied });
+    }
+    if (d.lowIncomeReduction) {
+        const l = d.lowIncomeReduction;
+        let potential;
+        if (l.kind === 'baseMinusIncomeRate') {
+            potential = l.baseAmount - l.phaseOutRate * Math.max(0, ctx.netIncome - l.phaseOutStart);
+        } else { // 'lift'
+            potential = Math.min(l.baseAmount, l.earningsRate * ctx.income) - l.phaseOutRate * Math.max(0, ctx.netIncome - l.phaseOutStart);
+        }
+        potential = Math.max(0, potential);
+        const applied = Math.min(remaining, potential);
+        remaining -= applied;
+        reductions.push({ name: l.name || 'Low-income reduction', kind: l.kind, potential, amount: applied });
+    }
+    const reductionsTotal = afterSurtax - remaining;
+
+    // Federal only: Quebec abatement on basic federal tax.
+    let abatement = 0;
+    if (ctx.federal && ctx.quebecResident) {
+        abatement = remaining * d.abatement.quebec;
+        remaining -= abatement;
+    }
+
+    const healthPremium = healthPremiumFor(d.healthPremium, ctx.taxableIncome);
+    const net = remaining + healthPremium;
+
+    return {
+        code: d.code,
+        name: d.name,
+        netIncome: ctx.netIncome,
+        taxableIncome: ctx.taxableIncome,
+        bracketTax,
+        brackets: rows,
+        creditRate: c.creditRate,
+        creditsDetail,
+        creditsTotal,
+        afterCredits,
+        surtax,
+        afterSurtax,
+        reductions,
+        reductionsTotal,
+        abatement,
+        healthPremiumName: d.healthPremium ? d.healthPremium.name : null,
+        healthPremium,
+        net
+    };
+}
+
+// ---------------------------------------------------------------------------
+// Public class
+// ---------------------------------------------------------------------------
 
 export class TaxCalculator {
-    constructor() {
-        // 2024 Federal tax brackets
-        this.federalBrackets = {
-            single: [[11950, 0.10], [47150, 0.12], [100525, 0.22], [191950, 0.24], [243725, 0.32], [609350, 0.35], [Infinity, 0.37]],
-            married: [[23850, 0.10], [96950, 0.12], [206700, 0.22], [394600, 0.24], [501050, 0.32], [751600, 0.35], [Infinity, 0.37]]
-        };
-        
-        // 2024 Maryland state tax brackets
-        this.marylandBrackets = {
-            single: [[1000, 0.02], [2000, 0.03], [3000, 0.04], [100000, 0.0475], [125000, 0.05], [150000, 0.0525], [250000, 0.055], [Infinity, 0.0575]],
-            married: [[1000, 0.02], [2000, 0.03], [3000, 0.04], [150000, 0.0475], [175000, 0.05], [225000, 0.0525], [300000, 0.055], [Infinity, 0.0575]]
-        };
-        
-        // 2024 Anne Arundel County tax brackets
-        this.anneArundelBrackets = {
-            single: [[50000, 0.027], [400000, 0.0281], [Infinity, 0.032]],
-            married: [[75000, 0.027], [480000, 0.0281], [Infinity, 0.032]]
-        };
-        
-        // 2024 standard deductions
-        this.standardDeductions = {
-            single: 14600,
-            married: 29200
-        };
+    /**
+     * @param {object} [data] - { fed, payroll, provinces: {code: module}, provinceCodes: [...] };
+     *   defaults to js/data/index.js. Tests pass a modified copy.
+     */
+    constructor(data = defaultData) {
+        this.data = data;
+        this.year = YEAR;
     }
 
-    /**
-     * Calculate tax based on bracket system
-     * @param {number} income - Taxable income
-     * @param {Array} brackets - Tax bracket array
-     * @returns {number} Calculated tax amount
-     */
-    calculateBracketTax(income, brackets) {
-        if (income <= 0) return 0;
-        
-        let totalTax = 0;
-        let previousLimit = 0;
-
-        for (const bracket of brackets) {
-            const [bracketLimit, rate] = bracket;
-            
-            if (income <= previousLimit) {
-                break; // Income is below this bracket
-            }
-            
-            const taxableInThisBracket = Math.min(income, bracketLimit) - previousLimit;
-            
-            if (taxableInThisBracket > 0) {
-                totalTax += taxableInThisBracket * rate;
-            }
-            
-            if (income <= bracketLimit) {
-                break; // We've calculated all applicable brackets
-            }
-            
-            previousLimit = bracketLimit;
+    /** Validate the federal, payroll and one province module; throws on any problem. */
+    _load(province) {
+        const { fed, payroll, provinces, provinceCodes } = this.data;
+        if (typeof province !== 'string' || !provinceCodes.includes(province)) {
+            throw new Error(`unknown province/territory '${province}'; expected one of ${provinceCodes.join(', ')}`);
         }
-        
-        return Math.round(totalTax * 100) / 100; // Round to nearest cent
+        const prov = provinces[province];
+        validateJurisdiction(fed, 'fed', { federal: true });
+        validatePayroll(payroll);
+        validateJurisdiction(prov, province);
+        if (prov.code !== province) throw new DataError(province, `code field is '${prov.code}'`);
+        return { fed, payroll, prov };
     }
 
-    /**
-     * Get federal tax brackets for filing status
-     * @param {number} filingStatus - 1 for single, 2 for married
-     * @returns {Array} Tax brackets array
-     */
-    getFederalBrackets(filingStatus) {
-        return filingStatus === 1 ? this.federalBrackets.single : this.federalBrackets.married;
-    }
+    /** Income tax + payroll for one set of inputs, without marginal rates. */
+    _compute({ employmentIncome, province, otherDeductions = 0 }) {
+        if (typeof employmentIncome !== 'number' || !Number.isFinite(employmentIncome) || employmentIncome < 0) {
+            throw new Error(`employmentIncome must be a finite number >= 0, got ${employmentIncome}`);
+        }
+        if (typeof otherDeductions !== 'number' || !Number.isFinite(otherDeductions) || otherDeductions < 0) {
+            throw new Error(`otherDeductions must be a finite number >= 0, got ${otherDeductions}`);
+        }
+        const { fed, payroll, prov } = this._load(province);
+        const income = employmentIncome;
+        const quebec = province === 'qc';
+        const pay = computePayroll(payroll, income, quebec);
 
-    /**
-     * Get Maryland state tax brackets for filing status
-     * @param {number} filingStatus - 1 for single, 2 for married
-     * @returns {Array} Tax brackets array
-     */
-    getMarylandBrackets(filingStatus) {
-        return filingStatus === 1 ? this.marylandBrackets.single : this.marylandBrackets.married;
-    }
+        // Deductions from income: enhanced first-tier pension + second-tier pension + other.
+        const pensionEnhanced = pay.pension.enhanced;
+        const pension2 = pay.pension2.total;
+        const other = Math.min(otherDeductions, income);
+        const federalDeductions = pensionEnhanced + pension2 + other;
+        const fedNet = Math.max(0, income - federalDeductions);
 
-    /**
-     * Get Anne Arundel County tax brackets for filing status
-     * @param {number} filingStatus - 1 for single, 2 for married
-     * @returns {Array} Tax brackets array
-     */
-    getAnneArundelBrackets(filingStatus) {
-        return filingStatus === 1 ? this.anneArundelBrackets.single : this.anneArundelBrackets.married;
-    }
+        // Provincial net income: same as federal unless a special says otherwise.
+        let provDeductions = federalDeductions;
+        let workerDeduction = 0;
+        if (hasSpecial(prov, 'QC deduction for workers')) {
+            const { rate: r, cap } = workerDeductionParams(prov, province);
+            workerDeduction = Math.min(r * income, cap);
+        }
+        if (hasSpecial(prov, 'QC deduction for enhanced QPP contributions') && !quebec) {
+            throw new DataError(province, `special 'QC deduction for enhanced QPP contributions' only applies with QPP (province qc)`);
+        }
+        // 'QC deduction for enhanced QPP contributions': qppEnhanced + qpp2, which is exactly the generic
+        // pension deduction above (pensionEnhanced + pension2 with QPP data); it is not added twice.
+        provDeductions = federalDeductions + workerDeduction;
+        const provNet = Math.max(0, income - provDeductions);
 
-    /**
-     * Get standard deduction for filing status
-     * @param {number} filingStatus - 1 for single, 2 for married
-     * @returns {number} Standard deduction amount
-     */
-    getStandardDeduction(filingStatus) {
-        return filingStatus === 1 ? this.standardDeductions.single : this.standardDeductions.married;
-    }
+        const federal = computeJurisdiction(fed, {
+            income, netIncome: fedNet, taxableIncome: fedNet, pay,
+            payrollCredits: quebec ? fed.credits.payrollCreditsQuebecResident : fed.credits.payrollCredits,
+            quebecResident: quebec, federal: true
+        });
+        const provincial = computeJurisdiction(prov, {
+            income, netIncome: provNet, taxableIncome: provNet, pay,
+            payrollCredits: prov.credits.payrollCredits,
+            quebecResident: quebec, federal: false
+        });
 
-    /**
-     * Calculate complete tax scenario including federal, state, and county taxes
-     * @param {Object} params - Tax calculation parameters
-     * @returns {Object} Complete tax calculation results
-     */
-    calculateTaxes(params) {
-        const { income, adjustments, deductions, credits, filingStatus } = params;
-        
-        // Step 1: Calculate AGI
-        const agi = Math.max(0, income - adjustments);
-        
-        // Step 2: Calculate taxable income
-        const taxableIncome = Math.max(0, agi - deductions);
-        
-        // Step 3: Calculate pre-credit tax
-        const preCreditTax = this.calculateBracketTax(taxableIncome, this.getFederalBrackets(filingStatus));
-        
-        // Step 4: Apply credits
-        const totalTax = Math.max(0, preCreditTax - credits);
-        
-        // Step 5: Calculate take-home pay
-        const postTaxIncome = income - totalTax;
-        
-        // Calculate effective rates
-        const taxableEffectiveRate = taxableIncome > 0 ? (preCreditTax / taxableIncome) * 100 : 0;
-        const grossEffectiveRate = income > 0 ? (totalTax / income) * 100 : 0;
-        
+        const incomeTax = federal.net + provincial.net;
+        const totalDeductions = incomeTax + pay.total;
+        const planKey = quebec ? 'qpp' : 'cpp';
         return {
-            agi,
-            taxableIncome,
-            preCreditTax,
-            totalTax,
-            postTaxIncome,
-            taxableEffectiveRate,
-            grossEffectiveRate
-        };
-    }
-
-    /**
-     * Calculate complete tax scenario with state and county taxes
-     * @param {Object} params - Tax calculation parameters including state inputs
-     * @returns {Object} Complete tax calculation results with federal, state, and county breakdowns
-     */
-    calculateAllTaxes(params) {
-        const { 
-            // Federal parameters
-            federalIncome, federalAdjustments, federalDeductions, federalCredits,
-            // State parameters
-            stateIncome, stateAdjustments, stateDeductions, stateCredits,
-            // Common parameters
-            filingStatus 
-        } = params;
-        
-        // Federal calculations
-        const federalAgi = Math.max(0, federalIncome - federalAdjustments);
-        const federalTaxableIncome = Math.max(0, federalAgi - federalDeductions);
-        const federalPreCreditTax = this.calculateBracketTax(federalTaxableIncome, this.getFederalBrackets(filingStatus));
-        const federalTax = Math.max(0, federalPreCreditTax - federalCredits);
-        
-        // State calculations (Maryland)
-        const stateAgi = Math.max(0, stateIncome - stateAdjustments);
-        const stateTaxableIncome = Math.max(0, stateAgi - stateDeductions);
-        const statePreCreditTax = this.calculateBracketTax(stateTaxableIncome, this.getMarylandBrackets(filingStatus));
-        const stateTax = Math.max(0, statePreCreditTax - stateCredits);
-        
-        // County calculations (Anne Arundel - based on state taxable income)
-        const countyTax = this.calculateBracketTax(stateTaxableIncome, this.getAnneArundelBrackets(filingStatus));
-        
-        // Total calculations
-        const totalTax = federalTax + stateTax + countyTax;
-        const primaryIncome = Math.max(federalIncome, stateIncome);
-        const postTaxIncome = primaryIncome - totalTax;
-        
-        // Effective rates
-        const federalEffectiveRate = federalIncome > 0 ? (federalTax / federalIncome) * 100 : 0;
-        const stateEffectiveRate = stateIncome > 0 ? (stateTax / stateIncome) * 100 : 0;
-        const countyEffectiveRate = stateIncome > 0 ? (countyTax / stateIncome) * 100 : 0;
-        const totalEffectiveRate = primaryIncome > 0 ? (totalTax / primaryIncome) * 100 : 0;
-        
-        return {
-            federal: {
-                agi: federalAgi,
-                taxableIncome: federalTaxableIncome,
-                preCreditTax: federalPreCreditTax,
-                totalTax: federalTax,
-                effectiveRate: federalEffectiveRate
+            input: { employmentIncome: income, province, provinceName: prov.name, otherDeductions, year: YEAR },
+            federal,
+            provincial,
+            payroll: {
+                plan: pay.plan,
+                [planKey]: pay.pension.total,
+                [planKey + '2']: pay.pension2.total,
+                ei: pay.ei.total,
+                qpip: pay.qpip.total,
+                total: pay.total,
+                detail: pay
             },
-            state: {
-                agi: stateAgi,
-                taxableIncome: stateTaxableIncome,
-                preCreditTax: statePreCreditTax,
-                totalTax: stateTax,
-                effectiveRate: stateEffectiveRate
-            },
-            county: {
-                totalTax: countyTax,
-                effectiveRate: countyEffectiveRate
+            deductionsFromIncome: {
+                [planKey + 'Enhanced']: pensionEnhanced,
+                [planKey + '2']: pension2,
+                other,
+                qcWorkerDeduction: workerDeduction,
+                federalTotal: federalDeductions,
+                provincialTotal: provDeductions
             },
             totals: {
-                totalTax,
-                postTaxIncome,
-                effectiveRate: totalEffectiveRate,
-                primaryIncome
+                incomeTax,
+                payroll: pay.total,
+                totalDeductions,
+                takeHome: income - totalDeductions,
+                effectiveRate: income > 0 ? totalDeductions / income : 0,
+                effectiveIncomeTaxRate: income > 0 ? incomeTax / income : 0
             }
         };
     }
 
     /**
-     * Calculate baseline scenario (standard deduction, no adjustments/credits)
-     * @param {number} income - Gross income
-     * @param {number} filingStatus - Filing status
-     * @returns {Object} Baseline calculation results
+     * Full calculation with marginal rates.
+     * @param {{employmentIncome:number, province:string, otherDeductions?:number}} input
      */
-    calculateBaseline(income, filingStatus) {
-        return this.calculateTaxes({
-            income,
-            adjustments: 0,
-            deductions: this.getStandardDeduction(filingStatus),
-            credits: 0,
-            filingStatus
+    calculate(input) {
+        const r = this._compute(input);
+        const up = this._compute({ ...input, employmentIncome: input.employmentIncome + 1 });
+        r.federal.marginalRate = up.federal.net - r.federal.net;
+        r.provincial.marginalRate = up.provincial.net - r.provincial.net;
+        r.totals.marginalRate = up.totals.incomeTax - r.totals.incomeTax;
+        r.totals.marginalRateIncomeTax = r.totals.marginalRate;
+        r.totals.marginalRateIncludingPayroll = up.totals.totalDeductions - r.totals.totalDeductions;
+        r.payroll.marginalRate = up.payroll.total - r.payroll.total;
+        return r;
+    }
+
+    /** Same salary in each of the 13 provinces/territories. Throws if any module is missing. */
+    compareAll({ employmentIncome, otherDeductions = 0 }) {
+        return this.data.provinceCodes.map(code => {
+            const r = this.calculate({ employmentIncome, province: code, otherDeductions });
+            return {
+                province: code,
+                name: r.input.provinceName,
+                federalTax: r.federal.net,
+                provincialTax: r.provincial.net,
+                incomeTax: r.totals.incomeTax,
+                payroll: r.totals.payroll,
+                totalDeductions: r.totals.totalDeductions,
+                takeHome: r.totals.takeHome,
+                effectiveRate: r.totals.effectiveRate,
+                marginalRate: r.totals.marginalRate,
+                marginalRateIncludingPayroll: r.totals.marginalRateIncludingPayroll,
+                salesTax: this.data.provinces[code].salesTax ?? null
+            };
         });
     }
 
     /**
-     * Calculate Maryland baseline scenario (standard deduction, no adjustments/credits)
-     * @param {number} income - Gross income
-     * @param {number} filingStatus - Filing status
-     * @returns {Object} Maryland baseline calculation results
+     * Per-bracket breakdown for the tax-math tabs.
+     * @param {string} jurisdiction - 'fed' or a province code
+     * @param {number} taxableIncome
      */
-    calculateMarylandBaseline(income, filingStatus) {
-        const inputs = {
-            federalIncome: 0,
-            federalAdjustments: 0,
-            federalDeductions: 0,
-            federalCredits: 0,
-            stateIncome: income,
-            stateAdjustments: 0,
-            stateDeductions: this.getStandardDeduction(filingStatus),
-            stateCredits: 0,
-            filingStatus
-        };
-        
-        const fullCalculation = this.calculateAllTaxes(inputs);
-        
-        // Return only the state and county portions
-        return {
-            state: fullCalculation.state,
-            county: fullCalculation.county,
-            combined: {
-                totalTax: fullCalculation.state.totalTax + fullCalculation.county.totalTax,
-                postTaxIncome: income - (fullCalculation.state.totalTax + fullCalculation.county.totalTax),
-                effectiveRate: income > 0 ? ((fullCalculation.state.totalTax + fullCalculation.county.totalTax) / income) * 100 : 0
-            }
-        };
+    getBracketBreakdown(jurisdiction, taxableIncome) {
+        const d = jurisdiction === 'fed' ? this.data.fed : this.data.provinces[jurisdiction];
+        if (!d) throw new Error(`unknown jurisdiction '${jurisdiction}'`);
+        validateBrackets(d.brackets, jurisdiction);
+        const { rows, total } = bracketBreakdown(taxableIncome, d.brackets);
+        return { jurisdiction, name: d.name, taxableIncome, rows, total };
     }
 
-    /**
-     * Calculate detailed tax bracket breakdown for visual display
-     * @param {number} income - Taxable income
-     * @param {Array} brackets - Tax bracket array
-     * @param {string} jurisdiction - Name of the tax jurisdiction
-     * @returns {Object} Detailed breakdown with bracket-by-bracket information
-     */
-    calculateBracketBreakdown(income, brackets, jurisdiction) {
-        if (income <= 0) {
-            return {
-                jurisdiction,
-                totalTax: 0,
-                totalIncome: 0,
-                brackets: []
-            };
-        }
-        
-        let totalTax = 0;
-        let previousLimit = 0;
-        let remainingIncome = income;
-        const bracketDetails = [];
-
-        for (let i = 0; i < brackets.length; i++) {
-            const [bracketLimit, rate] = brackets[i];
-            
-            if (remainingIncome <= 0) {
-                // No remaining income for this bracket
-                bracketDetails.push({
-                    lowerLimit: previousLimit,
-                    upperLimit: bracketLimit === Infinity ? 'No Limit' : bracketLimit,
-                    rate: rate * 100,
-                    incomeRemaining: 0,
-                    taxIncomeInBracket: 0,
-                    taxAmount: 0
-                });
-                continue;
-            }
-            
-            const taxableInThisBracket = Math.min(remainingIncome, bracketLimit - previousLimit);
-            const taxForThisBracket = taxableInThisBracket * rate;
-            
-            bracketDetails.push({
-                lowerLimit: previousLimit,
-                upperLimit: bracketLimit === Infinity ? 'No Limit' : bracketLimit,
-                rate: rate * 100,
-                incomeRemaining: remainingIncome,
-                taxIncomeInBracket: taxableInThisBracket,
-                taxAmount: taxForThisBracket
-            });
-            
-            totalTax += taxForThisBracket;
-            remainingIncome -= taxableInThisBracket;
-            
-            if (income <= bracketLimit) {
-                // Fill remaining brackets with zeros
-                for (let j = i + 1; j < brackets.length; j++) {
-                    const [nextLimit, nextRate] = brackets[j];
-                    bracketDetails.push({
-                        lowerLimit: j === 0 ? 0 : brackets[j-1][0],
-                        upperLimit: nextLimit === Infinity ? 'No Limit' : nextLimit,
-                        rate: nextRate * 100,
-                        incomeRemaining: 0,
-                        taxIncomeInBracket: 0,
-                        taxAmount: 0
-                    });
-                }
-                break;
-            }
-            
-            previousLimit = bracketLimit;
-        }
-        
-        return {
-            jurisdiction,
-            totalTax: Math.round(totalTax * 100) / 100,
-            totalIncome: income,
-            brackets: bracketDetails
-        };
+    /** [{code, name}] for the 13 provinces/territories in display order. */
+    listProvinces() {
+        return this.data.provinceCodes.map(code => {
+            const d = this.data.provinces[code];
+            if (!d) throw new DataError(code, 'module not loaded');
+            return { code, name: d.name };
+        });
     }
 
-    /**
-     * Get complete tax breakdown for all jurisdictions
-     * @param {Object} inputs - Tax calculation inputs
-     * @returns {Object} Complete breakdown for federal, state, and county taxes
-     */
-    getCompleteTaxBreakdown(inputs) {
-        const {
-            federalIncome,
-            federalAdjustments,
-            federalDeductions,
-            federalCredits,
-            stateIncome,
-            stateAdjustments,
-            stateDeductions,
-            stateCredits,
-            filingStatus
-        } = inputs;
-        
-        // Calculate taxable incomes
-        const federalAGI = Math.max(0, federalIncome - federalAdjustments);
-        const federalTaxableIncome = Math.max(0, federalAGI - federalDeductions);
-        
-        const stateAGI = Math.max(0, stateIncome - stateAdjustments);
-        const stateTaxableIncome = Math.max(0, stateAGI - stateDeductions);
-        
-        // Get brackets
-        const federalBrackets = this.getFederalBrackets(filingStatus);
-        const marylandBrackets = this.getMarylandBrackets(filingStatus);
-        const anneArundelBrackets = this.getAnneArundelBrackets(filingStatus);
-        
-        // Calculate breakdowns
-        const federalBreakdown = this.calculateBracketBreakdown(
-            federalTaxableIncome, 
-            federalBrackets, 
-            'Federal Tax Bracket Breakdown'
-        );
-        
-        const marylandBreakdown = this.calculateBracketBreakdown(
-            stateTaxableIncome, 
-            marylandBrackets, 
-            'Maryland Tax Bracket Breakdown'
-        );
-        
-        const anneArundelBreakdown = this.calculateBracketBreakdown(
-            stateTaxableIncome, 
-            anneArundelBrackets, 
-            'Anne Arundel Tax Bracket Breakdown'
-        );
-        
-        return {
-            federal: federalBreakdown,
-            maryland: marylandBreakdown,
-            anneArundel: anneArundelBreakdown,
-            summary: {
-                federalTaxableIncome,
-                stateTaxableIncome,
-                totalFederalTax: Math.max(0, federalBreakdown.totalTax - federalCredits),
-                totalStateTax: Math.max(0, marylandBreakdown.totalTax - stateCredits),
-                totalCountyTax: anneArundelBreakdown.totalTax,
-                combinedTax: Math.max(0, federalBreakdown.totalTax - federalCredits) + 
-                            Math.max(0, marylandBreakdown.totalTax - stateCredits) + 
-                            anneArundelBreakdown.totalTax
-            }
-        };
+    /** Raw data module (for sources, flags, salesTax in the UI). */
+    getJurisdictionData(code) {
+        return code === 'fed' ? this.data.fed : code === 'payroll' ? this.data.payroll : this.data.provinces[code];
     }
 }
+
+export default TaxCalculator;
