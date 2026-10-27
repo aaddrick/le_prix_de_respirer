@@ -2,6 +2,8 @@
 
 This calculator has been refactored into a modular architecture where each section can be modified or replaced independently.
 
+Contributor docs (running it, architecture, tax rules, testing) are in [docs/](docs/index.md).
+
 ## Project Structure
 
 ```
