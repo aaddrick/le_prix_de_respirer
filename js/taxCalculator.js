@@ -107,7 +107,7 @@ const CREDIT_KEYS = ['creditRate', 'basicPersonalAmount', 'bpaPhaseOut', 'canada
 /** Unknown keys throw, so a misspelt optional field (e.g. 'surTax') can't be silently ignored. */
 function checkKeys(obj, allowed, code, where) {
     for (const k of Object.keys(obj)) {
-        // Descriptive text keys (e.g. 'note') are ignored, per Director ruling 2026-10-27.
+        // Descriptive text keys (e.g. 'note') carry no numbers and are ignored.
         if (typeof obj[k] === 'string') continue;
         if (!allowed.includes(k)) throw new DataError(code, `unknown field '${where}${k}' (not in the frozen schema)`);
     }
@@ -139,7 +139,7 @@ function validateSpecials(d, code) {
     for (const s of special) {
         if (!s || typeof s.name !== 'string') throw new DataError(code, `special entry without a name`);
         if (!ALLOWED_SPECIALS.includes(s.name)) {
-            throw new DataError(code, `unknown special '${s.name}': the engine implements only ${ALLOWED_SPECIALS.join(' | ')}; a new special needs a Director ruling`);
+            throw new DataError(code, `unknown special '${s.name}': the engine implements only ${ALLOWED_SPECIALS.join(' | ')}; add the rule to ALLOWED_SPECIALS and implement it in the calculator first`);
         }
         if (typeof s.how !== 'string') throw new DataError(code, `special '${s.name}' has no 'how' text`);
         if (!s.params || typeof s.params !== 'object' || Array.isArray(s.params)) throw new DataError(code, `special '${s.name}' has no 'params' object`);
