@@ -40,6 +40,5 @@ export default {
   ],
   flags: [
     { field: 'brackets[0][1] and credits.creditRate', status: 'PROVISIONAL', note: 'D11 mid-year change. ANNUAL 2026 value used = 5.60% (BC gov tax-rates page; CRA T4127 123rd Ed. text "lowest personal tax rate is increased from 5.06% to 5.60%" and Option 2 K1P = 0.056 x TCP). NOT used: January payroll value 5.06% (T4127 122nd Ed.) and July-December payroll catch-up value 6.14% (T4127 123rd Ed. Table 8.1, V1 = 0.0614, KP2 = 786). Status PROVISIONAL only because the budget law (Bill 2, Budget Measures Implementation Act, 2026) royal assent date was not seen.' },
-    { field: 'lowIncomeReduction.baseAmount', status: 'PROVISIONAL', note: 'D11. ANNUAL 2026 value used = 690 with threshold 25,570 and rate 3.56% (gov.bc.ca basic credits page; T4127 123rd Ed. Option 2 S). NOT used: January payroll value 575 (T4127 122nd Ed., indexed from 562; phase-out end 41,722) and July-December payroll catch-up value 805 (T4127 123rd Ed. Table 8.2 S2). Same PROVISIONAL reason as above.' }
   ]
 };

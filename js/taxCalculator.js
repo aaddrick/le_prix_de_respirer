@@ -142,6 +142,8 @@ function validateSpecials(d, code) {
             throw new DataError(code, `unknown special '${s.name}': the engine implements only ${ALLOWED_SPECIALS.join(' | ')}; a new special needs a Director ruling`);
         }
         if (typeof s.how !== 'string') throw new DataError(code, `special '${s.name}' has no 'how' text`);
+        if (!s.params || typeof s.params !== 'object' || Array.isArray(s.params)) throw new DataError(code, `special '${s.name}' has no 'params' object`);
+        if (s.name === 'QC deduction for workers') workerDeductionParams({ special: [s] }, code);
     }
     return special;
 }
@@ -149,22 +151,21 @@ function validateSpecials(d, code) {
 const hasSpecial = (d, name) => Array.isArray(d.special) && d.special.some(s => s.name === name);
 
 /**
- * Read the numeric parameters of the QC deduction for workers.
- * Prefers structured `params: {rate, cap}`; otherwise parses the `how` text
- * "min(<rate> * employmentIncome, <cap>)". Throws if neither is present, so
- * no rate is ever hard-coded here.
+ * Read the numeric parameters of the QC deduction for workers from the
+ * structured `params: {rate, cap}`. The prose in `how` is documentation only
+ * and is never read. A missing or invalid param throws, so no rate is ever
+ * hard-coded here.
  */
 function workerDeductionParams(d, code) {
     const s = d.special.find(x => x.name === 'QC deduction for workers');
-    if (s.params && typeof s.params.rate === 'number' && typeof s.params.cap === 'number') {
-        return { rate: s.params.rate, cap: s.params.cap };
+    const p = s.params;
+    if (!p || typeof p.rate !== 'number' || typeof p.cap !== 'number') {
+        throw new DataError(code, `special 'QC deduction for workers': params must be {rate: number, cap: number}`);
     }
-    const m = /min\(\s*([0-9.]+)\s*\*\s*employmentIncome\s*,\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*\)/.exec(s.how);
-    if (!m) throw new DataError(code, `special 'QC deduction for workers': cannot read rate and cap from 'how'`);
-    const r = Number(m[1]);
-    const cap = Number(m[2].replace(/,/g, ''));
-    if (!(r > 0 && r < 1) || !(cap > 0)) throw new DataError(code, `special 'QC deduction for workers': bad rate ${r} or cap ${cap}`);
-    return { rate: r, cap };
+    if (!(p.rate > 0 && p.rate < 1) || !(p.cap > 0) || !Number.isFinite(p.cap)) {
+        throw new DataError(code, `special 'QC deduction for workers': bad rate ${p.rate} or cap ${p.cap}`);
+    }
+    return { rate: p.rate, cap: p.cap };
 }
 
 function validateJurisdiction(d, code, { federal = false } = {}) {

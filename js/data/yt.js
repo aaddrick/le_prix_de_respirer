@@ -24,8 +24,9 @@ export default {
   special: [
     {
       name: 'yukonCanadaEmploymentCredit',
-      description: 'Yukon has its own non-refundable Canada employment credit: 6.4% (Yukon lowest rate) x min(employment income, 1,501). The PLAN schema lists credits.canadaEmploymentAmount as federal-only, so this is a use of that field outside the schema. T4127 factor K4P = lesser of (0.064 x A) and (0.064 x CEA), CEA = 1,501 (Table 8.2).',
-      how: 'In the Yukon calculation add to non-refundable credits: credits.creditRate * min(employmentIncome, credits.canadaEmploymentAmount). Do not apply it to any other jurisdiction that has canadaEmploymentAmount null.'
+      description: 'Yukon has its own non-refundable Canada employment credit: 6.4% (Yukon lowest rate) x min(employment income, 1,501). The data schema describes credits.canadaEmploymentAmount as federal-only, so this is a use of that field outside the schema. T4127 factor K4P = lesser of (0.064 x A) and (0.064 x CEA), CEA = 1,501 (Table 8.2).',
+      how: 'In the Yukon calculation add to non-refundable credits: credits.creditRate * min(employmentIncome, credits.canadaEmploymentAmount). Do not apply it to any other jurisdiction that has canadaEmploymentAmount null.',
+      params: {},
     }
   ],
   sources: [

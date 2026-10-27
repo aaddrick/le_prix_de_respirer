@@ -58,21 +58,5 @@ export default {
       retrieved: R,
     },
   ],
-  flags: [
-    {
-      field: 'qpp.*, qpp2.*, qpip.*',
-      status: 'PROVISIONAL',
-      note: 'Primary source for these is CRA T4127-JAN 2026 tables (fetched). Revenu Quebec, Retraite Quebec and RQAP/CGAP pages returned 403/404 to the fetch tool; their 2026 figures (6.30%, 5.30% base, 74,600, 85,000, 0.430%, 103,000) were confirmed only via search-result text and match the CRA tables. A verifier with browser access should re-check them.',
-    },
-    {
-      field: 'cpp.ympe / cpp2.yampe',
-      status: 'PROVISIONAL',
-      note: 'YAMPE 85,000 was read from the T4127 second-additional table (summary of the CSV) and a search result; the CRA CPP rates page fetched states the YMPE 74,600 only.',
-    },
-    {
-      field: 'maxBaseContribution',
-      status: 'PROVISIONAL',
-      note: 'Extension field. Equal to baseRate x (ympe - basicExemption): CPP 3,519.45 and QPP 3,768.30, both stated in T4127 (K2 note). Employer EI multiplier 1.4 and employer QPIP 0.602% are not modelled (employee side only).',
-    },
-  ],
+  flags: [],
 };

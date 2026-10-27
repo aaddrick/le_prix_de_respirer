@@ -27,9 +27,10 @@ export default {
     { fields: ['brackets'], url: 'https://www.canada.ca/en/revenue-agency/services/tax/individuals/tax-rates-brackets/current-year.html', title: 'CRA, Personal income tax rates 2026: NU 4% to 55,801; 7% to 111,602; 9% to 181,439; 11.5% above', retrieved: '2026-10-27' },
     { fields: ['credits.basicPersonalAmount'], url: 'https://www.canada.ca/content/dam/cra-arc/formspubs/pbg/td1nu/td1nu-fill-26e.pdf', title: 'CRA TD1NU 2026 line 1: BPA 19,659', retrieved: '2026-10-27' },
     { fields: ['brackets'], url: 'https://taxnews.ey.com/news/2026-1151-canada-nunavut-budget-2026', title: 'EY: Nunavut Budget 2026: no personal income tax rate changes (secondary, corroborates)', retrieved: '2026-10-27' },
-    { fields: ['salesTax'], url: 'https://www.canada.ca/en/revenue-agency/services/tax/businesses/topics/gst-hst-businesses/charge-collect-which-rate/calculator.html', title: 'CRA GST/HST calculator and rates: NU GST 5%, PST 0%', retrieved: '2026-10-27' }
+    { fields: ['salesTax'], url: 'https://www.canada.ca/en/revenue-agency/services/tax/businesses/topics/gst-hst-businesses/charge-collect-which-rate/calculator.html', title: 'CRA GST/HST calculator and rates: NU GST 5%, PST 0%', retrieved: '2026-10-27' },
+    { fields: ['brackets'], url: 'https://www.gov.nu.ca/sites/default/files/documents/2026-01/January_2026_Nunavut_Tax_Rate_Sheet_-_EN.pdf', title: 'Government of Nunavut, January 2026 tax rate sheet: 4.0% to 55,801; 7.0% to 111,602; 9.0% to 181,439; 11.5% above', retrieved: '2026-10-27' }
   ],
   flags: [
-    { field: 'brackets', status: 'UNVERIFIED', note: 'Informational: the gov.nu.ca rate page was not read; values rest on CRA T4127 / TD1 / CRA rates page (official) plus an EY budget summary, with no territorial-government confirmation.' }
+    { field: 'credits.basicPersonalAmount', status: 'UNVERIFIED', note: 'Informational: the gov.nu.ca tax rate sheet confirms the brackets (see sources) but does not print the basic personal amount 19,659, which rests on CRA T4127 and TD1NU 2026.' }
   ]
 };

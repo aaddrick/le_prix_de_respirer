@@ -47,7 +47,7 @@ export default {
     phaseOutStart: 32500,   // single-individual adjusted net income threshold
     phaseOutRate: 0.05,     // credit reduced by 5% of adjusted net income above threshold
     earningsRate: 0.0505,   // maximum credit = 5.05% of employment income (lines 10100 + 10400), capped at baseAmount
-    note: 'credit = max(0, min(875, 0.0505*employment income) - 0.05*max(0, adjusted net income - 32500)). Single-person case only (D9). Non-refundable; amounts are the 2025 ON428-A values, no 2026 form is published yet (see flags).',
+    note: 'credit = max(0, min(875, 0.0505*employment income) - 0.05*max(0, adjusted net income - 32500)). Single-person case only (D9). Non-refundable; amounts are the 2022-onward values on the Ontario LIFT page (see sources).',
   },
   healthPremium: {
     name: 'Ontario Health Premium',
@@ -78,9 +78,9 @@ export default {
     { fields: ['lowIncomeReduction'], url: 'https://www.canada.ca/content/dam/cra-arc/formspubs/pbg/5006-a/5006-a-fill-25e.pdf', title: 'CRA Schedule ON428-A (2025): LIFT 5.05% of employment income, maximum $875, single threshold $32,500, 5% reduction rate', retrieved: R },
     { fields: ['salesTax'], url: 'https://www.canada.ca/en/revenue-agency/services/tax/businesses/topics/gst-hst-businesses/charge-collect-which-rate/calculator.html', title: 'CRA: GST/HST rates by province (Ontario 13%)', retrieved: R },
     { fields: ['brackets', 'surtax'], url: 'https://assets.kpmg.com/content/dam/kpmgsites/ca/pdf/services/tax/personal-tables/ca-federal-and-provincial-territorial-income-tax-rates-and-brackets-for-2026.pdf.coredownload.inline.pdf', title: 'KPMG 2026 rates and brackets (secondary cross-check only: ON indexation 1.9%, surtax 5,818/7,446)', retrieved: R },
+    { fields: ['lowIncomeReduction'], url: 'https://www.ontario.ca/page/low-income-workers-tax-credit', title: 'Ontario: Low-income Individuals and Families Tax (LIFT) credit, updated 2026-07-15: for 2022 onward, maximum 875 or 5.05% of employment income, reduced by 5% of adjusted net income over 32,500 (single)', retrieved: R },
   ],
   flags: [
-    { field: 'lowIncomeReduction', status: 'PROVISIONAL', note: 'LIFT values (875 max, 5.05%, 32,500, 5%) are confirmed from the 2025 Schedule ON428-A. No 2026 ON428-A or T4127 entry exists (T4127 does not model LIFT), so 2026 amounts are assumed unchanged from 2025. Not independently confirmed from an Ontario 2026 source.' },
     { field: 'taxReduction.basicAmount', status: 'PROVISIONAL', note: 'T4127 Table 8.2 gives S2 = 300 for 2026 (official). The 2026 ON428 form is not yet published; 2025 form shows 294 (294 x 1.019 = 299.6, consistent). Dependant add-on (554 per child, D9 out of scope) is not modelled.' },
     { field: 'healthPremium', status: 'PROVISIONAL', note: 'Bands are confirmed from T4127 122nd ed. (2026 payroll) and the 2025 ON428 chart; the Health Premium is not indexed. T4127 states the premium is not reduced by the Ontario tax reduction (engine order: premium added last).' },
   ],

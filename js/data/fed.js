@@ -1,4 +1,4 @@
-// Federal (Canada) income tax, tax year 2026. DOM-free data module (schema: PLAN_canada.md D8/D10).
+// Federal (Canada) income tax, tax year 2026. DOM-free data module.
 // Data only; the engine owns all arithmetic.
 const R = '2026-10-27';
 export default {
@@ -22,7 +22,7 @@ export default {
     cppQppEiCredit: true,
     // Payroll items credited federally for residents outside Quebec.
     payrollCredits: ['cppBase', 'ei'],
-    // Extension field (not in D10 schema, reported to Director): items credited federally for Quebec residents.
+    // Extension field (outside the base schema): items credited federally for Quebec residents.
     payrollCreditsQuebecResident: ['qppBase', 'eiQuebec', 'qpip'],
     other: [],
   },
@@ -50,7 +50,7 @@ export default {
     {
       fields: ['salesTax.gst'],
       url: 'https://www.revenuquebec.ca/en/businesses/consumption-taxes/gsthst-and-qst/basic-rules-for-applying-the-gsthst-and-qst/tables-of-gst-and-qst-rates/',
-      title: 'Revenu Quebec: Tables of GST and QST rates (GST 5% since 2008; secondary for GST, CRA GST pages state 5% in the PST example)',
+      title: 'Revenu Quebec: Tables of GST and QST rates (GST 5% since 2008; confirmed in a browser by an independent verifier)',
       retrieved: R,
     },
   ],
@@ -61,19 +61,9 @@ export default {
       note: 'OUT OF SCOPE (D9/D10): the federal top-up tax credit (2025-2030) is NOT modelled and is $0 under D9, because credits never exceed the first bracket threshold. Do not add it to credits.other.',
     },
     {
-      field: 'credits.creditRate / brackets[0]',
-      status: 'PROVISIONAL',
-      note: 'The CRA indexation page does not state the lowest rate. 14% for 2026 is stated by T4127 122nd ed. ("the lowest federal tax bracket will be 14%") and consistent with the legislated 14.5% (2025 blended) to 14% (2026).',
-    },
-    {
-      field: 'salesTax.gst',
-      status: 'PROVISIONAL',
-      note: 'GST 5% confirmed from a Revenu Quebec rates page via search result text (its direct fetch returned 403) and the CRA page example (5%); no CRA page fetched that states the rate as a standalone line.',
-    },
-    {
       field: 'credits.payrollCreditsQuebecResident',
       status: 'PROVISIONAL',
-      note: 'Extension field outside the D10 schema. Federal credit for a Quebec resident uses QPP base (5.30% rate, max 3,768.30 per T4127 K2 note), the Quebec EI rate and QPIP, per T4127 Quebec T1 treatment and Universite de Sherbrooke CFFP; the engine owner must confirm. Reported to the Director.',
+      note: 'Extension field outside the base schema. Federal credit for a Quebec resident uses QPP base (5.30% rate, max 3,768.30 per T4127 K2 note), the Quebec EI rate and QPIP, per T4127 Quebec T1 treatment and Universite de Sherbrooke CFFP; the engine owner must confirm.',
     },
   ],
 };
