@@ -1,6 +1,6 @@
 // Payroll contributions, tax year 2026 (CPP/CPP2, QPP/QPP2, EI incl. Quebec rate, QPIP). DOM-free data module.
 // Data only; the engine owns all arithmetic. Base share is credited, enhanced first-tier share is a deduction,
-// CPP2/QPP2 is wholly a deduction (D10). maxBaseContribution = base rate x (YMPE - basic exemption).
+// CPP2/QPP2 is wholly a deduction (enhanced-first-tier split). maxBaseContribution = base rate x (YMPE - basic exemption).
 const R = '2026-10-27';
 export default {
   code: 'payroll',

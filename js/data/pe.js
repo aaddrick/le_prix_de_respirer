@@ -1,6 +1,6 @@
 // Prince Edward Island, tax year 2026. Numbers only; DOM-free.
 // Data builder: DATA-B. Retrieved 2026-10-27.
-// D11: top bracket rate is the ANNUAL 2026-return value (20% above 200,000), not the July payroll catch-up (21%). See flags.
+// Top bracket rate is the ANNUAL 2026-return value (20% above 200,000), not the July payroll catch-up (21%). See flags.
 // No surtax: none appears in the 2026 T4127 PE entries or Table 8.2.
 const R = '2026-10-27';
 const T4127_JUL_HTML = 'https://www.canada.ca/en/revenue-agency/services/forms-publications/payroll/t4127-payroll-deductions-formulas/t4127-jul/t4127-jul-payroll-deductions-formulas.html';

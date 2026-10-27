@@ -1,5 +1,5 @@
 // Northwest Territories, tax year 2026. Numbers only; the engine owns all arithmetic.
-// Out of scope (D9): NWT Cost of Living Offset (refundable). gov.nt.ca rate page not fetched; values rest on CRA publications.
+// Out of scope (single filer, employment income only): NWT Cost of Living Offset (refundable). gov.nt.ca rate page not fetched; values rest on CRA publications.
 export default {
   code: 'nt',
   name: 'Northwest Territories',

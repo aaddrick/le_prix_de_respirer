@@ -33,6 +33,6 @@ export default {
   ],
   flags: [
     { field: 'brackets', status: 'CONFLICT', note: 'Two official CRA sources disagree. Used 47,000 / 100,000 (T4127 122nd and 123rd ed. Table 8.1, T4032MB, TD1MB, and the Manitoba 2026 budget summaries, which say Manitoba thresholds are not indexed): https://www.canada.ca/en/revenue-agency/services/forms-publications/payroll/t4127-payroll-deductions-formulas/t4127-jul/t4127-jul-payroll-deductions-formulas.html. The CRA 2026 return rates page lists 47,564 / 101,200 (exactly 47,000 / 100,000 x 1.012): https://www.canada.ca/en/revenue-agency/services/tax/individuals/tax-rates-brackets/current-year.html. No Manitoba government page or statute text with the figures could be read (Income Tax Act C.C.S.M. c. I10 link redirects to an index; gov.mb.ca finance pages carry no figures). Effect of choosing the other pair is at most about 67 dollars a year (about 11 between 47,000 and 47,564, plus about 56 above 100,000).' },
-    { field: 'credits.other', status: 'PROVISIONAL', note: 'Only the basic personal amount and payroll credits are modelled (D9). MB labour-sponsored funds credit (max 1,800) and refundable credits (Family Tax Benefit, Renters Affordability) are out of scope.' }
+    { field: 'credits.other', status: 'PROVISIONAL', note: 'Only the basic personal amount and payroll credits are modelled (single filer, employment income only). MB labour-sponsored funds credit (max 1,800) and refundable credits (Family Tax Benefit, Renters Affordability) are out of scope.' }
   ]
 };

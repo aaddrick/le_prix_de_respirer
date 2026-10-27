@@ -1,5 +1,5 @@
 // Saskatchewan, tax year 2026. Numbers only; the engine owns all arithmetic.
-// Out of scope (D9): SK labour-sponsored credit (max 875). SK BPA includes the legislated extra $500/yr on top of indexation (19,491 in 2025).
+// Out of scope (single filer, employment income only): SK labour-sponsored credit (max 875). SK BPA includes the legislated extra $500/yr on top of indexation (19,491 in 2025).
 export default {
   code: 'sk',
   name: 'Saskatchewan',

@@ -1,4 +1,4 @@
-// British Columbia, tax year 2026. ANNUAL values used on the 2026 T1/BC428 return (D11), not the July payroll catch-up values.
+// British Columbia, tax year 2026. ANNUAL values used on the 2026 T1/BC428 return, not the July payroll catch-up values.
 // Numbers only; the engine owns all arithmetic.
 export default {
   code: 'bc',
@@ -39,6 +39,6 @@ export default {
     { fields: ['salesTax'], url: 'https://www.canada.ca/en/revenue-agency/services/tax/businesses/topics/gst-hst-businesses/charge-collect-which-rate/calculator.html', title: 'CRA GST/HST calculator and rates: BC GST 5%, PST 7%', retrieved: '2026-10-27' }
   ],
   flags: [
-    { field: 'brackets[0][1] and credits.creditRate', status: 'PROVISIONAL', note: 'D11 mid-year change. ANNUAL 2026 value used = 5.60% (BC gov tax-rates page; CRA T4127 123rd Ed. text "lowest personal tax rate is increased from 5.06% to 5.60%" and Option 2 K1P = 0.056 x TCP). NOT used: January payroll value 5.06% (T4127 122nd Ed.) and July-December payroll catch-up value 6.14% (T4127 123rd Ed. Table 8.1, V1 = 0.0614, KP2 = 786). Status PROVISIONAL only because the budget law (Bill 2, Budget Measures Implementation Act, 2026) royal assent date was not seen.' },
+    { field: 'brackets[0][1] and credits.creditRate', status: 'PROVISIONAL', note: 'Mid-year change. ANNUAL 2026 value used = 5.60% (BC gov tax-rates page; CRA T4127 123rd Ed. text "lowest personal tax rate is increased from 5.06% to 5.60%" and Option 2 K1P = 0.056 x TCP). NOT used: January payroll value 5.06% (T4127 122nd Ed.) and July-December payroll catch-up value 6.14% (T4127 123rd Ed. Table 8.1, V1 = 0.0614, KP2 = 786). Status PROVISIONAL only because the budget law (Bill 2, Budget Measures Implementation Act, 2026) royal assent date was not seen.' },
   ]
 };

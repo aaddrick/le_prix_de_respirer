@@ -58,7 +58,7 @@ export default {
     {
       field: 'topUpTaxCredit',
       status: 'UNVERIFIED',
-      note: 'OUT OF SCOPE (D9/D10): the federal top-up tax credit (2025-2030) is NOT modelled and is $0 under D9, because credits never exceed the first bracket threshold. Do not add it to credits.other.',
+      note: 'OUT OF SCOPE: the federal top-up tax credit (2025-2030) is NOT modelled and is $0 here (single filer with employment income only), because credits never exceed the first bracket threshold. Do not add it to credits.other.',
     },
     {
       field: 'credits.payrollCreditsQuebecResident',

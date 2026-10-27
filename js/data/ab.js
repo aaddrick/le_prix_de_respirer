@@ -28,6 +28,6 @@ export default {
     { fields: ['salesTax'], url: 'https://www.canada.ca/en/revenue-agency/services/tax/businesses/topics/gst-hst-businesses/charge-collect-which-rate/calculator.html', title: 'CRA GST/HST calculator and rates: AB GST 5%, PST 0%', retrieved: '2026-10-27' }
   ],
   flags: [
-    { field: 'credits.other', status: 'PROVISIONAL', note: 'Alberta supplemental non-refundable credit (T4127 122nd Ed., factor K5P = 0.25 x ((K1P + K2P) - 4,896), floor 0; equivalent to 2% of eligible credits above 61,200 = 60,000 x 1.02) is NOT modelled and is $0 under D9, because the basic personal amount plus CPP/EI credit amounts are far below 61,200. Same treatment as the federal top-up credit. Source: T4127 122nd Ed. AB section (K5P). The alberta.ca page does not mention this credit.' }
+    { field: 'credits.other', status: 'PROVISIONAL', note: 'Alberta supplemental non-refundable credit (T4127 122nd Ed., factor K5P = 0.25 x ((K1P + K2P) - 4,896), floor 0; equivalent to 2% of eligible credits above 61,200 = 60,000 x 1.02) is NOT modelled and is $0 here (the calculator takes only employment income, province and other deductions), because the basic personal amount plus CPP/EI credit amounts are far below 61,200. Same treatment as the federal top-up credit. Source: T4127 122nd Ed. AB section (K5P). The alberta.ca page does not mention this credit.' }
   ]
 };

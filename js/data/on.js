@@ -47,7 +47,7 @@ export default {
     phaseOutStart: 32500,   // single-individual adjusted net income threshold
     phaseOutRate: 0.05,     // credit reduced by 5% of adjusted net income above threshold
     earningsRate: 0.0505,   // maximum credit = 5.05% of employment income (lines 10100 + 10400), capped at baseAmount
-    note: 'credit = max(0, min(875, 0.0505*employment income) - 0.05*max(0, adjusted net income - 32500)). Single-person case only (D9). Non-refundable; amounts are the 2022-onward values on the Ontario LIFT page (see sources).',
+    note: 'credit = max(0, min(875, 0.0505*employment income) - 0.05*max(0, adjusted net income - 32500)). Single-person case only (no spouse or dependants). Non-refundable; amounts are the 2022-onward values on the Ontario LIFT page (see sources).',
   },
   healthPremium: {
     name: 'Ontario Health Premium',
@@ -81,7 +81,7 @@ export default {
     { fields: ['lowIncomeReduction'], url: 'https://www.ontario.ca/page/low-income-workers-tax-credit', title: 'Ontario: Low-income Individuals and Families Tax (LIFT) credit, updated 2026-07-15: for 2022 onward, maximum 875 or 5.05% of employment income, reduced by 5% of adjusted net income over 32,500 (single)', retrieved: R },
   ],
   flags: [
-    { field: 'taxReduction.basicAmount', status: 'PROVISIONAL', note: 'T4127 Table 8.2 gives S2 = 300 for 2026 (official). The 2026 ON428 form is not yet published; 2025 form shows 294 (294 x 1.019 = 299.6, consistent). Dependant add-on (554 per child, D9 out of scope) is not modelled.' },
+    { field: 'taxReduction.basicAmount', status: 'PROVISIONAL', note: 'T4127 Table 8.2 gives S2 = 300 for 2026 (official). The 2026 ON428 form is not yet published; 2025 form shows 294 (294 x 1.019 = 299.6, consistent). Dependant add-on (554 per child, out of scope: no dependants) is not modelled.' },
     { field: 'healthPremium', status: 'PROVISIONAL', note: 'Bands are confirmed from T4127 122nd ed. (2026 payroll) and the 2025 ON428 chart; the Health Premium is not indexed. T4127 states the premium is not reduced by the Ontario tax reduction (engine order: premium added last).' },
   ],
 };
