@@ -18,6 +18,7 @@ module imports and shows a page of zeros.
 | changing a bracket, rate, or deduction, or adding a jurisdiction | [docs/tax-rules.md](docs/tax-rules.md) |
 | changing UI, a tab, or how modules talk to each other | [docs/architecture.md](docs/architecture.md) |
 | about to say a change works | [docs/testing.md](docs/testing.md) |
+| writing or reviewing a check, or adding test coverage | [docs/learnings/test-methodology-and-coverage.md](docs/learnings/test-methodology-and-coverage.md) |
 | hitting zeros, a blank tab, or a console error | [docs/troubleshooting.md](docs/troubleshooting.md) |
 | editing anything in `docs/` | [docs/CLAUDE.md](docs/CLAUDE.md) |
 

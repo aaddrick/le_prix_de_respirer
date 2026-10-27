@@ -21,6 +21,8 @@ breaking it. Pages are grouped by what you are trying to do.
 - [Testing](testing.md): the Node check, the reference scenario, and the
   manual pass.
 - [Troubleshooting](troubleshooting.md).
+- [Test methodology and coverage](learnings/test-methodology-and-coverage.md):
+  how to write a check that can fail, and how to prove it can.
 
 ## Contributing
 
