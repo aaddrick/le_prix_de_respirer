@@ -30,6 +30,8 @@
   --accent:         #2340b8;   /* the one accent: links, kickers, numbers */
   --block:          #2340b8;   /* solid accent blocks */
   --on-block:       #ffffff;
+  --ink-block:      #0f1115;   /* loss band: ink block (D52) */
+  --on-ink-block:   #f0efe9;
 
   /* Muted hues: badges, flags, bars and the difference colour only */
   --c-teal:  #0f7a74;  --t-teal:  #e8f5f3;
@@ -54,6 +56,8 @@
   --accent:         #8fa3ff;
   --block:          #3d5cff;
   --on-block:       #ffffff;
+  --ink-block:      #f0efe9;
+  --on-ink-block:   #0d0e11;
 
   --c-teal:  #5fd0c4;  --t-teal:  #0f2523;
   --c-green: #6fd38f;  --t-green: #12261a;
@@ -315,7 +319,7 @@ strong { font-weight: 600; }
   background: var(--band); color: var(--on-band);
 }
 .headline-grid:has(#out-diff-take-home.diff-negative) .headline-diff,
-.headline-grid:has(#out-diff-take-home.diff-negative) .diff-sentence { --band: var(--c-red); --on-band: var(--on-hue); }
+.headline-grid:has(#out-diff-take-home.diff-negative) .diff-sentence { --band: var(--ink-block); --on-band: var(--on-ink-block); }
 .headline-grid:has(#out-diff-take-home:not(.diff-negative):not(.diff-positive)) .headline-diff,
 .headline-grid:has(#out-diff-take-home:not(.diff-negative):not(.diff-positive)) .diff-sentence { --band: var(--surface); --on-band: var(--text); }
 .headline-diff {
@@ -573,9 +577,9 @@ th[aria-sort="descending"] .sort-button::after { content: " \25BC"; opacity: 1; 
   .main-content { padding-top: .8rem; }
   .section-title { font-size: 1.8rem; padding: .4rem 0 .5rem; }
   .input-group { padding-top: .7rem; }
-  .tab-navigation { gap: 0 1.1rem; }
+  .tab-navigation { gap: 0 .7rem; }
   .tab-button { font-size: 1.05rem; padding-top: .65rem; }
-  .tab-button.tab-secondary { font-size: .72rem; letter-spacing: .1em; }
+  .tab-button.tab-secondary { font-size: .7rem; letter-spacing: .06em; flex: 1 1 0; text-align: center; }
   #provinces-tab { margin-right: 0; }
   .input-row { grid-template-columns: minmax(0, 1fr) 8rem; gap: .8rem; }
   .primary-button { width: 100%; justify-content: center; }
