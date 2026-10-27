@@ -21,6 +21,7 @@ export default {
     creditRate: 0.095,
     basicPersonalAmount: 15000,
     bpaPhaseOut: null,
+    canadaEmploymentAmount: null,
     cppQppEiCredit: true,
     payrollCredits: ['cppBase', 'ei'],
     other: [],

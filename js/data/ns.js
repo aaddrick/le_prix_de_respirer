@@ -19,6 +19,7 @@ export default {
     creditRate: 0.0879,
     basicPersonalAmount: 11932,   // flat for all incomes in 2026 (T4127 removed the income-tested BPANS formula)
     bpaPhaseOut: null,
+    canadaEmploymentAmount: null,
     cppQppEiCredit: true,
     payrollCredits: ['cppBase', 'ei'],
     other: [],
