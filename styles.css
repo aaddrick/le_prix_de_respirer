@@ -30,13 +30,13 @@
   --accent:         #2340b8;   /* the one accent: links, kickers, numbers */
   --block:          #2340b8;   /* solid accent blocks */
   --on-block:       #ffffff;
-  --ink-block:      #0f1115;   /* loss band: ink block (D52) */
+  --ink-block:      #0f1115;   /* loss band: an ink block, not red */
   --on-ink-block:   #f0efe9;
 
   /* Muted hues: badges, flags, bars and the difference colour only */
   --c-teal:  #0f7a74;  --t-teal:  #e8f5f3;
   --c-green: #23794a;  --t-green: #eaf5ee;
-  --c-amber: #965808;  --t-amber: #fbf2e3;   /* darker than the reference #a3610a: AA on its tint (D48) */
+  --c-amber: #965808;  --t-amber: #fbf2e3;   /* darker than the reference #a3610a to meet WCAG AA 4.5:1 on its tint */
   --c-red:   #b3261e;  --t-red:   #fcecea;
   --on-hue:  #ffffff;                         /* text on a solid hue segment */
 
@@ -307,7 +307,7 @@ strong { font-weight: 600; }
 .headline-sub { font-size: .95rem; color: var(--text-secondary); margin-top: .5rem; }
 .headline-sub span { font-weight: 600; color: var(--text); }
 
-/* B in teal (D50) */
+/* B in teal (Scenario B gets its own muted teal; A stays cobalt) */
 .headline-b { border-top-color: var(--c-teal); }
 .headline-b .headline-value { color: var(--c-teal); }
 

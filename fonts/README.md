@@ -5,7 +5,7 @@ with relative `@font-face` URLs (`fonts/<file>.woff2`). Both families are under
 the SIL Open Font License 1.1, and neither declares a Reserved Font Name. Each
 licence text sits beside the files. Monospace text uses the system stack
 (`ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`), so no monospace
-font ships here (D47). Only the weights the page uses are shipped: Anton 400, Work
+font ships here (IBM Plex is left out: it carries a Reserved Font Name and the files would be subsets). Only the weights the page uses are shipped: Anton 400, Work
 Sans 400 and 600.
 
 The woff2 files are byte-identical copies of the ones in the author's site

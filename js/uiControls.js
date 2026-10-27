@@ -2,7 +2,7 @@
  * UI Controls Module
  * Reads the Setup inputs for Scenario A and B, keeps each slider and number
  * box in sync both ways, and owns the compare toggle and the math-tab A/B
- * switch. Ids are listed in notes/ui-ids.md.
+ * switch. Ids are described in docs/architecture.md.
  */
 
 const DEFAULTS = {
@@ -22,7 +22,7 @@ export class UIControls {
     }
 
     initializeElements() {
-        // One literal lookup per id (see notes/ui-ids.md).
+        // One literal lookup per id.
         const elements = {
             a: {
                 provinceSelect: document.getElementById('a-province-select'),

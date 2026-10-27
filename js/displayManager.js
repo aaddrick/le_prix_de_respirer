@@ -1,9 +1,9 @@
 /**
  * Display Manager Module
  * Writes every result to the page. Every number shown comes from the
- * TaxCalculator result (notes/engine.md) or from the data module the engine
+ * TaxCalculator result (see docs/architecture.md) or from the data module the engine
  * hands back through getJurisdictionData(); none is typed into the HTML.
- * Ids are listed in notes/ui-ids.md.
+ * Ids are described in docs/architecture.md.
  */
 
 const moneyFormat = new Intl.NumberFormat('en-CA', {
@@ -183,7 +183,7 @@ export function sourceLinksFrom(pairs, max = 3) {
 }
 
 /**
- * Extra official landing pages for the Verify section (notes/legal.md, section 4),
+ * Extra official landing pages for the Verify section,
  * keyed by data code. Where the data holds no government page for a
  * jurisdiction, these are the province's own finance pages. Some of these
  * sites refuse automated requests but open in a browser.
@@ -770,7 +770,7 @@ export class DisplayManager {
             'Each slice of income is taxed at its own bracket rate; see the bracket table below.'
         ));
 
-        // Optional steps, in the engine's order of operations (notes/engine.md).
+        // Optional steps, in the engine's order of operations.
         // A step whose amount rounds to $0 is left out (no "-$0" rows).
         const shows = v => Math.abs(v) >= 0.5;
         const optional = [];

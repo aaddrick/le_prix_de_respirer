@@ -5,7 +5,7 @@
  * Each tab is a button `#<name>-tab` paired with a panel `#<name>-content`
  * in index.html. TAB_NAMES is the single list of names: click binding,
  * Ctrl/Cmd+<n> shortcuts and setActiveTab() all read it, so a new tab needs
- * its two elements plus one entry here. notes/ui-ids.md lists the full ids.
+ * its two elements plus one entry here. docs/architecture.md covers the ids.
  */
 
 export const TAB_NAMES = ['setup', 'output', 'provinces', 'federal-math', 'provincial-math', 'payroll-math'];
