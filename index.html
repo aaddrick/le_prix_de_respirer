@@ -107,6 +107,7 @@
 
             <!-- TAB: OUTPUT -->
             <div id="output-content" class="tab-content" role="tabpanel">
+                <p class="edit-inputs-row"><button id="out-edit-inputs" type="button" class="link-button">&larr; Edit inputs</button></p>
                 <div class="headline-grid">
                     <div class="headline-card headline-a">
                         <p id="out-a-label" class="headline-label">Scenario A</p>
@@ -125,6 +126,7 @@
                     </div>
                 </div>
                 <p id="out-diff-sentence" class="diff-sentence">-</p>
+                <p class="note-text estimate-line">Estimate for the 2026 tax year, not financial, tax or legal advice; verify against the official sources linked under each rate.</p>
 
                 <div class="visualization-section">
                     <h2 class="section-heading">Where each salary goes</h2>
@@ -154,7 +156,12 @@
                     </div>
                 </div>
                 <p class="note-text">Marginal rate: tax on your next dollar of salary. Effective rate: share of your whole salary. The Federal, Provincial and Payroll math tabs show every step.</p>
-                <!-- UI-3: "Verify these numbers" (official source links per jurisdiction) goes here. -->
+
+                <section class="verify-section" aria-labelledby="verify-heading">
+                    <h2 id="verify-heading" class="section-heading">Verify these numbers</h2>
+                    <p class="note-text">Every rate, threshold and amount here comes from the pages below, and each one is also linked next to the figure it supports. Open the official page and compare before you rely on a number. Some government sites block automated tools but open in a normal browser. Pages marked as cross-checks are third-party, not official.</p>
+                    <div id="verify-list" class="verify-grid"></div>
+                </section>
             </div>
 
             <!-- TAB: ALL PROVINCES -->
@@ -344,7 +351,14 @@
         <footer class="disclaimer-section">
             <div class="disclaimer-content">
                 <p class="disclaimer-text">
-                    <strong>Disclaimer:</strong> This tool is for educational and informational purposes only. The calculations and tax information provided are not professional tax advice and should not be considered as such. Some 2026 values are provisional; each tax-math tab marks them. For official figures, consult the Canada Revenue Agency, Revenu Québec, or a qualified tax professional. The accuracy of calculations cannot be guaranteed, and users are responsible for verifying all tax-related information with official sources.
+                    <strong>Estimates only.</strong> This tool estimates 2026 Canadian income tax, CPP/QPP, EI and QPIP/RQAP using published rates, and the
+                    figures are current as of <span id="footer-as-of">-</span>. It is not financial, tax or legal advice, and it does not file
+                    or replace a tax return. Some values are provisional, and the Tax math tabs mark them. It is an independent project: it is not
+                    affiliated with or endorsed by the Canada Revenue Agency, Revenu Québec, Retraite Québec or any federal, provincial or
+                    territorial government. Check the official sources linked on this page, or ask a qualified professional, before you
+                    rely on a number. The amounts you enter stay in your browser and are not sent to any server; the page stores only your
+                    light/dark theme choice, and it loads its font from Google Fonts, so Google receives your IP address as it does for any
+                    web font request.
                 </p>
             </div>
         </footer>

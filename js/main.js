@@ -56,8 +56,8 @@ export class TaxCalculatorApp {
             this.displayManager.updateAll({
                 ra,
                 rb,
-                dataA: { prov: calc.getJurisdictionData(v.a.province) },
-                dataB: rb ? { prov: calc.getJurisdictionData(v.b.province) } : null,
+                dataA: { prov: calc.getJurisdictionData(v.a.province), fed: calc.getJurisdictionData('fed'), payroll: calc.getJurisdictionData('payroll') },
+                dataB: rb ? { prov: calc.getJurisdictionData(v.b.province), fed: calc.getJurisdictionData('fed'), payroll: calc.getJurisdictionData('payroll') } : null,
                 rows,
                 salesData,
                 mathScenario: v.mathScenario,

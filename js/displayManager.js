@@ -55,10 +55,178 @@ const PENSION_DEDUCTION_LABELS = {
     qpp2: 'QPP2 contributions (second additional)'
 };
 
+// ----------------------------------------------------------------------
+// Source links (UI-3). Everything here reads the `sources` arrays of the
+// data modules; no URL is typed into the page except EXTRA_VERIFY_LINKS.
+// ----------------------------------------------------------------------
+
+/** Hosts that are not government or statute pages; labelled "secondary". */
+const SECONDARY_HOSTS = [
+    ['kpmg.com', 'KPMG'], ['ey.com', 'EY'], ['rcgt.com', 'RCGT'],
+    ['transcanadawealthmanagement.com', 'TransCanada Wealth'], ['usherbrooke.ca', 'U Sherbrooke']
+];
+
+const HOST_LABELS = [
+    ['revenuquebec.ca', 'Revenu Québec'], ['cdn-contenu.quebec.ca', 'Québec Finance'], ['quebec.ca', 'Québec Finance'],
+    ['finances.gouv.qc.ca', 'Québec Finance'], ['rqap.gouv.qc.ca', 'RQAP'], ['retraitequebec.gouv.qc.ca', 'Retraite Québec'],
+    ['legisquebec.gouv.qc.ca', 'Québec statute'], ['gov.bc.ca', 'BC gov'], ['alberta.ca', 'Alberta gov'],
+    ['saskatchewan.ca', 'SK gov'], ['manitoba.ca', 'MB gov'], ['gov.mb.ca', 'MB gov'], ['ontario.ca', 'ON gov'],
+    ['gnb.ca', 'NB gov'], ['novascotia.ca', 'NS gov'], ['princeedwardisland.ca', 'PEI gov'],
+    ['assembly.nl.ca', 'NL statute'], ['gov.nl.ca', 'NL gov'], ['gov.nu.ca', 'NU gov'],
+    ['fin.gov.nt.ca', 'NT gov'], ['gov.nt.ca', 'NT gov'], ['yukon.ca', 'Yukon gov']
+];
+
+function parseUrl(url) {
+    try {
+        const u = new URL(url);
+        return (u.protocol === 'https:' || u.protocol === 'http:') ? u : null;
+    } catch { return null; }
+}
+
+function hostMatches(host, suffix) {
+    return host === suffix || host.endsWith(`.${suffix}`);
+}
+
+/** {safe, label, official, title} for one data `sources` entry; safe is null for a bad URL. */
+export function describeSource(src) {
+    const u = parseUrl(src.url);
+    const title = src.title || String(src.url || '');
+    if (!u) return { safe: null, label: title, official: false, title };
+    const host = u.hostname.toLowerCase();
+    const path = u.pathname.toLowerCase();
+    const sec = SECONDARY_HOSTS.find(([h]) => hostMatches(host, h));
+    if (sec) return { safe: u.href, label: sec[1], official: false, title };
+    let label;
+    if (hostMatches(host, 'canada.ca')) {
+        const ed = path.includes('t4127-jan') ? ' Jan' : path.includes('t4127-jul') ? ' Jul' : '';
+        if (path.includes('t4127')) label = `CRA T4127${ed}${path.endsWith('.csv') ? ' table' : ''}`;
+        else if (path.includes('t4032')) label = 'CRA T4032';
+        else if (/\/td1[a-z]{0,2}-/.test(path) || path.includes('/pbg/td1')) label = 'CRA TD1';
+        else if (path.includes('/pbg/')) label = 'CRA provincial form';
+        else if (path.includes('tax-rates-brackets')) label = 'CRA rates';
+        else if (path.includes('adjustment-personal-income')) label = 'CRA indexation';
+        else if (path.includes('gst-hst')) label = 'CRA GST/HST';
+        else if (path.includes('cpp')) label = 'CRA CPP';
+        else if (path.includes('employment-insurance') || path.includes('/ei/') || path.includes('ei-premium')) label = 'CRA EI';
+        else label = 'CRA';
+    } else {
+        const m = HOST_LABELS.find(([h]) => hostMatches(host, h));
+        label = m ? m[1] : host.replace(/^www2?\./, '');
+    }
+    return { safe: u.href, label, official: true, title };
+}
+
+/** Sources of a data module whose `fields` start with any prefix (deduplicated by URL; official first). */
+export function pickSources(jData, prefixes) {
+    const all = (jData && Array.isArray(jData.sources)) ? jData.sources : [];
+    const seen = new Set();
+    const picked = [];
+    all.forEach(src => {
+        if (!Array.isArray(src.fields)) return;
+        if (!src.fields.some(f => prefixes.some(p => String(f) === p || String(f).startsWith(p)))) return;
+        const d = describeSource(src);
+        const key = d.safe || d.label;
+        if (seen.has(key)) return;
+        seen.add(key);
+        picked.push(d);
+    });
+    return picked.sort((a, b) => Number(b.official) - Number(a.official));
+}
+
+function linkElement(d, text) {
+    const a = document.createElement('a');
+    a.href = d.safe;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.className = d.official ? 'src-link' : 'src-link src-secondary';
+    a.textContent = text || (d.official ? d.label : `${d.label} (secondary)`);
+    a.title = `${d.official ? 'Official source' : 'Secondary source, not an official page'}: ${d.title}`;
+    return a;
+}
+
+/**
+ * A compact "Source:" span of links for the fields under `prefixes`.
+ * Returns null when no source covers them. At most `max` links; official
+ * ones come first, and a secondary link is labelled "(secondary)".
+ */
+export function sourceLinks(jData, prefixes, max = 3) {
+    const picked = pickSources(jData, prefixes).filter(d => d.safe).slice(0, max);
+    if (picked.length === 0) return null;
+    const span = document.createElement('span');
+    span.className = 'src-links';
+    span.append('Source: ');
+    picked.forEach((d, i) => {
+        if (i > 0) span.append(', ');
+        span.appendChild(linkElement(d));
+    });
+    return span;
+}
+
+/** Same links merged from several (data module, prefixes) pairs. */
+export function sourceLinksFrom(pairs, max = 3) {
+    const seen = new Set();
+    const picked = [];
+    pairs.forEach(([jData, prefixes]) => pickSources(jData, prefixes).forEach(d => {
+        const key = d.safe || d.label;
+        if (d.safe && !seen.has(key)) { seen.add(key); picked.push(d); }
+    }));
+    picked.sort((a, b) => Number(b.official) - Number(a.official));
+    if (picked.length === 0) return null;
+    const span = document.createElement('span');
+    span.className = 'src-links';
+    span.append('Source: ');
+    picked.slice(0, max).forEach((d, i) => {
+        if (i > 0) span.append(', ');
+        span.appendChild(linkElement(d));
+    });
+    return span;
+}
+
+/**
+ * Extra official landing pages for the Verify section (notes/legal.md, section 4),
+ * keyed by data code. Where the data holds no government page for a
+ * jurisdiction, these are the province's own finance pages. Some of these
+ * sites refuse automated requests but open in a browser.
+ */
+const EXTRA_VERIFY_LINKS = {
+    fed: [
+        ['CRA: tax rates, current and previous years', 'https://www.canada.ca/en/revenue-agency/services/tax/individuals/frequently-asked-questions-individuals/canadian-income-tax-rates-individuals-current-previous-years.html'],
+        ['CRA: payroll deductions formulas (T4127)', 'https://www.canada.ca/en/revenue-agency/services/forms-publications/payroll/t4127-payroll-deductions-formulas.html'],
+        ['CRA: TD1 personal tax credits returns', 'https://www.canada.ca/en/revenue-agency/services/forms-publications/td1-personal-tax-credits-returns.html']
+    ],
+    payroll: [
+        ['Service Canada: Canada Pension Plan', 'https://www.canada.ca/en/services/benefits/publicpensions/cpp.html'],
+        ['Service Canada: Employment Insurance', 'https://www.canada.ca/en/services/benefits/ei.html']
+    ],
+    qc: [
+        ['Revenu Québec', 'https://www.revenuquebec.ca/en/'],
+        ['Ministère des Finances du Québec', 'https://www.finances.gouv.qc.ca/en/'],
+        ['Retraite Québec (QPP)', 'https://www.retraitequebec.gouv.qc.ca/en/'],
+        ['QPIP contribution rates', 'https://www.rqap.gouv.qc.ca/en/employers/contribution-rates']
+    ],
+    on: [['Ontario: taxes and benefits', 'https://www.ontario.ca/page/taxes-and-benefits']],
+    nb: [['New Brunswick Finance: taxes', 'https://www2.gnb.ca/content/gnb/en/departments/finance/taxes.html']],
+    ns: [['Nova Scotia Finance: taxation', 'https://www.novascotia.ca/finance/en/home/taxation/default.aspx']],
+    pe: [['Prince Edward Island: taxes', 'https://www.princeedwardisland.ca/en/topic/taxes']],
+    nt: [['Northwest Territories Finance: taxation', 'https://www.fin.gov.nt.ca/en/services/taxation']],
+    yt: [['Government of Yukon (home page; the personal income tax page moved)', 'https://yukon.ca/en']],
+    nu: [['Nunavut Finance', 'https://www.gov.nu.ca/en/finance']]
+};
+
+/** A short link text from a data source title: the part before the first colon, capped. */
+function shortTitle(title) {
+    const parts = String(title || '').split(/\s\(|:/).map(x => x.trim()).filter(Boolean);
+    // "CRA: income tax rates ..." has a short first part; keep the second too.
+    let t = parts[0] || '';
+    if (t.length < 14 && parts[1]) t = `${t}: ${parts[1]}`;
+    return t.length > 70 ? `${t.slice(0, 67)}...` : t;
+}
+
 export class DisplayManager {
     constructor() {
         this.elements = this.initializeElements();
         this.provinceRows = [];
+        this.provinceData = {};
         this.provinceMarks = {};
         this.sort = { key: 'takeHome', dir: -1 };
         this.bindSortHeaders();
@@ -93,6 +261,8 @@ export class DisplayManager {
             'provinces-table': document.getElementById('provinces-table'),
             'provinces-table-body': document.getElementById('provinces-table-body'),
             'sales-tax-body': document.getElementById('sales-tax-body'),
+            'verify-list': document.getElementById('verify-list'),
+            'footer-as-of': document.getElementById('footer-as-of'),
             'payroll-math-title': document.getElementById('payroll-math-title'),
             'payroll-flags': document.getElementById('payroll-flags'),
             'payroll-steps': document.getElementById('payroll-steps'),
@@ -190,6 +360,7 @@ export class DisplayManager {
         this.updateJurisdictionMath('fed', mr.federal, mr, mathData.fed, mathData, tag);
         this.updateJurisdictionMath('prov', mr.provincial, mr, mathData.prov, mathData, tag);
         this.updatePayrollMath(mr, mathData.payroll, tag);
+        this.renderVerify(rows, salesData, mathData);
     }
 
     /** Show the A/B switch only on the math tabs, and only when comparing. */
@@ -295,6 +466,14 @@ export class DisplayManager {
      */
     renderCompareTable(ra, rb, dataA, dataB) {
         const comparing = Boolean(rb);
+        const fedData = dataA && dataA.fed;
+        const payrollData = dataA && dataA.payroll;
+        // Provincial source links: A's province, and B's when it differs.
+        const provSrc = prefixes => () => {
+            const pairs = [[dataA && dataA.prov, prefixes]];
+            if (comparing && dataB && dataB.prov && dataB.prov !== (dataA && dataA.prov)) pairs.push([dataB.prov, prefixes]);
+            return sourceLinksFrom(pairs, 4);
+        };
         const rows = [];
         const both = f => [f(ra), comparing ? f(rb) : null];
         const nonZero = ([a, b]) => Math.abs(a || 0) >= 0.5 || Math.abs(b || 0) >= 0.5;
@@ -314,33 +493,36 @@ export class DisplayManager {
         money('Other deductions (e.g. RRSP)', r => r.input.otherDeductions, { optional: true });
 
         heading('Federal tax');
-        money('Federal tax after credits', r => r.federal.afterCredits);
-        money('Quebec abatement', r => -r.federal.abatement, { optional: true });
-        money('Federal tax', r => r.federal.net, { strong: true, cls: 'row-federal' });
+        const fedSrc = () => sourceLinks(fedData, ['brackets', 'credits']);
+        // "after credits" repeats "Federal tax" when nothing else is applied (no Quebec abatement).
+        const fedSame = [ra, rb].filter(Boolean).every(r => Math.abs(r.federal.afterCredits - r.federal.net) < 0.005);
+        if (!fedSame) money('Federal tax after credits', r => r.federal.afterCredits, { src: fedSrc });
+        money('Quebec abatement', r => -r.federal.abatement, { optional: true, src: () => sourceLinks(fedData, ['abatement']) });
+        money('Federal tax', r => r.federal.net, { strong: true, cls: 'row-federal', src: fedSrc });
 
         heading('Provincial or territorial tax');
-        money('Provincial tax after credits', r => r.provincial.afterCredits);
-        money('Surtax', r => r.provincial.surtax, { optional: true });
+        money('Provincial tax after credits', r => r.provincial.afterCredits, { src: provSrc(['brackets', 'credits']) });
+        money('Surtax', r => r.provincial.surtax, { optional: true, src: provSrc(['surtax']) });
         const reductionNames = [...new Set([ra, rb].filter(Boolean).flatMap(r => r.provincial.reductions.map(x => x.name)))];
         reductionNames.forEach(name => {
             money(name, r => {
                 const x = r.provincial.reductions.find(y => y.name === name);
                 return x ? -x.amount : 0;
-            }, { optional: true });
+            }, { optional: true, src: provSrc(['lowIncomeReduction', 'taxReduction']) });
         });
         const premiumNames = [...new Set([ra, rb].filter(Boolean).map(r => r.provincial.healthPremiumName).filter(Boolean))];
         if (premiumNames.length) {
-            money(premiumNames.join(' / '), r => r.provincial.healthPremium, { optional: true });
+            money(premiumNames.join(' / '), r => r.provincial.healthPremium, { optional: true, src: provSrc(['healthPremium']) });
         }
-        money('Provincial tax (incl. the lines above)', r => r.provincial.net, { strong: true, cls: 'row-provincial' });
+        money('Provincial tax (incl. the lines above)', r => r.provincial.net, { strong: true, cls: 'row-provincial', src: provSrc(['brackets', 'credits']) });
 
         heading('Payroll contributions');
         const planLabel = comparing && ra.payroll.plan !== rb.payroll.plan ? 'CPP / QPP' : ra.payroll.plan;
-        money(`${planLabel} contributions`, r => (r.payroll.plan === 'QPP' ? r.payroll.qpp : r.payroll.cpp));
+        money(`${planLabel} contributions`, r => (r.payroll.plan === 'QPP' ? r.payroll.qpp : r.payroll.cpp), { src: () => sourceLinks(payrollData, ['cpp', 'qpp'], 2) });
         money(`${planLabel === 'CPP / QPP' ? 'CPP2 / QPP2' : `${planLabel}2`} contributions`,
-            r => (r.payroll.plan === 'QPP' ? r.payroll.qpp2 : r.payroll.cpp2), { optional: true });
-        money('EI premiums', r => r.payroll.ei);
-        money('QPIP premiums (Quebec)', r => r.payroll.qpip, { optional: true });
+            r => (r.payroll.plan === 'QPP' ? r.payroll.qpp2 : r.payroll.cpp2), { optional: true, src: () => sourceLinks(payrollData, ['cpp2', 'qpp2'], 2) });
+        money('EI premiums', r => r.payroll.ei, { src: () => sourceLinks(payrollData, ['ei'], 2) });
+        money('QPIP premiums (Quebec)', r => r.payroll.qpip, { optional: true, src: () => sourceLinks(payrollData, ['qpip'], 2) });
         money('Total payroll', r => r.payroll.total, { strong: true, cls: 'row-payroll' });
 
         heading('Bottom line');
@@ -378,6 +560,10 @@ export class DisplayManager {
                 const td = document.createElement(i === 0 ? 'th' : 'td');
                 if (i === 0) td.scope = 'row';
                 td.textContent = text;
+                if (i === 0 && row.src) {
+                    const link = row.src();
+                    if (link) td.appendChild(link);
+                }
                 if (i === 3 && row.better === 'higher') {
                     const d = row.b - row.a;
                     td.classList.toggle('diff-positive', d >= 0.5);
@@ -411,6 +597,7 @@ export class DisplayManager {
 
     updateProvinces(rows, ra, rb, salesData) {
         this.provinceRows = rows;
+        this.provinceData = salesData || {};
         this.provinceMarks = { [ra.input.province]: ['A'] };
         if (rb) {
             (this.provinceMarks[rb.input.province] ||= []).push('B');
@@ -442,6 +629,10 @@ export class DisplayManager {
                 const td = document.createElement(i === 0 ? 'th' : 'td');
                 if (i === 0) td.scope = 'row';
                 td.textContent = text;
+                if (i === 0 && this.provinceData[r.province]) {
+                    const link = sourceLinks(this.provinceData[r.province], ['brackets'], 2);
+                    if (link) td.appendChild(link);
+                }
                 tr.appendChild(td);
             });
             return tr;
@@ -465,6 +656,7 @@ export class DisplayManager {
         tbody.replaceChildren(...rows.map(r => {
             const st = r.salesTax;
             const tr = document.createElement('tr');
+            const mod = salesData && salesData[r.province];
             const pct = v => (typeof v === 'number' && v > 0 ? formatRate(v) : '-');
             let cells;
             if (!st) {
@@ -472,7 +664,6 @@ export class DisplayManager {
             } else {
                 const provincial = (st.qst || 0) > 0 ? `QST ${formatRate(st.qst)}` : pct(st.pst);
                 const combined = (st.hst || 0) > 0 ? st.hst : (st.gst || 0) + (st.pst || 0) + (st.qst || 0);
-                const mod = salesData && salesData[r.province];
                 const src = mod && Array.isArray(mod.sources)
                     ? mod.sources.find(s => Array.isArray(s.fields) && s.fields.some(f => String(f).startsWith('salesTax')))
                     : null;
@@ -494,6 +685,8 @@ export class DisplayManager {
                     if (text.title) td.title = text.title;
                     const slot = document.createElement('span');
                     slot.className = 'source-slot';
+                    const link = mod ? sourceLinks(mod, ['salesTax'], 2) : null;
+                    if (link) slot.appendChild(link);
                     td.appendChild(slot);
                 } else {
                     td.textContent = text;
@@ -531,13 +724,13 @@ export class DisplayManager {
         const d = r.deductionsFromIncome;
         const dedRows = Object.keys(PENSION_DEDUCTION_LABELS)
             .filter(k => k in d)
-            .map(k => [PENSION_DEDUCTION_LABELS[k], d[k]]);
-        dedRows.push(['Other deductions (e.g. RRSP)', d.other]);
+            .map(k => [PENSION_DEDUCTION_LABELS[k], d[k], sourceLinks(data.payroll, [k.replace(/Enhanced$/, '')])]);
+        dedRows.push(['Other deductions (e.g. RRSP)', d.other, null]);
         if (!isFed && r.input.province === 'qc') {
-            dedRows.push(['Deduction for workers (Quebec return only)', d.qcWorkerDeduction]);
+            dedRows.push(['Deduction for workers (Quebec return only)', d.qcWorkerDeduction, sourceLinks(jData, ['special'])]);
         }
         const dedTotal = isFed ? d.federalTotal : d.provincialTotal;
-        this.fillTable(`${prefix}-deductions-table`, dedRows.map(([label, v]) => [label, formatCurrency(v)]));
+        this.fillTable(`${prefix}-deductions-table`, dedRows.map(([label, v, link]) => [[label, link], formatCurrency(v)]));
         this.setText(`${prefix}-deductions-total`, formatCurrency(dedTotal));
 
         // Brackets
@@ -546,7 +739,7 @@ export class DisplayManager {
         this.fillTable(`${prefix}-bracket-table`, j.brackets.map(b => [
             formatCurrency(b.from),
             Number.isFinite(b.to) ? formatCurrency(b.to) : 'and up',
-            formatRate(b.rate),
+            [formatRate(b.rate), sourceLinks(jData, ['brackets'])],
             formatCurrency(b.taxableInBracket),
             formatCurrency(b.tax)
         ]), activeIndex);
@@ -555,7 +748,8 @@ export class DisplayManager {
 
         // Credits
         this.fillTable(`${prefix}-credits-table`, j.creditsDetail.map(c => [
-            c.name, formatCurrency(c.amount), formatRate(c.rate), formatCurrency(c.credit)
+            [c.name, this.creditSource(c.name, jData, data)],
+            formatCurrency(c.amount), formatRate(c.rate), formatCurrency(c.credit)
         ]));
         this.setText(`${prefix}-credits-total`, formatCurrency(j.creditsTotal));
 
@@ -633,6 +827,13 @@ export class DisplayManager {
         this.setText(`${prefix}-marginal-rate`, formatPercent(j.marginalRate));
     }
 
+    /** Source link for one credit row: payroll credits cite the payroll module, the rest the jurisdiction. */
+    creditSource(name, jData, data) {
+        const m = name.match(/\b(CPP|QPP|EI|QPIP)\b/);
+        if (m) return sourceLinks(data.payroll, [m[1].toLowerCase()]);
+        return sourceLinks(jData, ['credits']);
+    }
+
     /** Surtax tiers, reductions and health premium tables, only where the jurisdiction has them. */
     renderExtras(id, j, jData, r, isFed, data) {
         const host = this.el(id);
@@ -643,7 +844,7 @@ export class DisplayManager {
             blocks.push(this.tableBlock(
                 `${j.name} surtax`,
                 ['Tax after credits above', 'Surtax rate'],
-                jData.surtax.tiers.map(t => [formatCurrency(t.threshold), formatRate(t.rate)]),
+                jData.surtax.tiers.map(t => [formatCurrency(t.threshold), [formatRate(t.rate), sourceLinks(jData, ['surtax'])]]),
                 ['Surtax', formatCurrency(j.surtax)],
                 'Each tier applies to the part of tax after credits above its threshold; the tiers add up.'
             ));
@@ -654,7 +855,7 @@ export class DisplayManager {
             blocks.push(this.tableBlock(
                 'Tax reductions',
                 ['Reduction', 'Before cap', 'Applied'],
-                reductionRows.map(x => [x.name, formatCurrency(x.potential), formatCurrency(x.amount)]),
+                reductionRows.map(x => [[x.name, sourceLinks(jData, ['lowIncomeReduction', 'taxReduction'])], formatCurrency(x.potential), formatCurrency(x.amount)]),
                 ['Total applied', '', formatCurrency(j.reductionsTotal)],
                 'Reductions together cannot exceed the tax left after credits and surtax.'
             ));
@@ -664,7 +865,7 @@ export class DisplayManager {
             blocks.push(this.tableBlock(
                 'Quebec abatement',
                 ['Abatement rate', 'Abatement'],
-                [[formatRate(data.fed.abatement.quebec), formatCurrency(j.abatement)]],
+                [[[formatRate(data.fed.abatement.quebec), sourceLinks(data.fed, ['abatement'])], formatCurrency(j.abatement)]],
                 null,
                 'Quebec residents get this refundable reduction of federal tax because Quebec runs some programs the federal government funds elsewhere.'
             ));
@@ -675,7 +876,7 @@ export class DisplayManager {
                 j.healthPremiumName,
                 ['Taxable income from', 'To', 'Premium'],
                 jData.healthPremium.tiers.map(t => [
-                    formatCurrency(t.from),
+                    [formatCurrency(t.from), sourceLinks(jData, ['healthPremium'])],
                     t.to === null || !Number.isFinite(t.to) ? 'and up' : formatCurrency(t.to),
                     t.rate > 0
                         ? `${formatCurrency(t.base)} + ${formatRate(t.rate)} over ${formatCurrency(t.from)}, max ${formatCurrency(t.max)}`
@@ -719,7 +920,8 @@ export class DisplayManager {
             `Salary up to the maximum pensionable earnings (${formatCurrency(pension.ympe)}) minus the `
             + `${formatCurrency(pension.basicExemption)} basic exemption; maximum ${formatCurrency(pension.maxContribution)}. `
             + `Base ${formatRate(det.pension.baseRate)} = ${formatCurrency(det.pension.base)} (claimed as a credit); `
-            + `enhanced ${formatRate(det.pension.enhancedRate)} = ${formatCurrency(det.pension.enhanced)} (deducted from income).`
+            + `enhanced ${formatRate(det.pension.enhancedRate)} = ${formatCurrency(det.pension.enhanced)} (deducted from income).`,
+            sourceLinks(pd, [pk])
         ));
         steps.push(this.step(
             { label: 'Earnings between the two ceilings', value: formatCurrency(det.pension2.earnings), cls: 'calc-gross-income' },
@@ -727,7 +929,8 @@ export class DisplayManager {
             { label: `${p.plan}2 rate`, value: formatRate(det.pension2.rate), cls: 'calc-tax-rate' },
             { label: `${p.plan}2 contributions`, value: formatCurrency(det.pension2.total), cls: 'calc-total-tax' },
             `Salary between ${formatCurrency(pension.ympe)} and ${formatCurrency(pension2.yampe)}; `
-            + `maximum ${formatCurrency(pension2.max)}. Deducted from income.`
+            + `maximum ${formatCurrency(pension2.max)}. Deducted from income.`,
+            sourceLinks(pd, [p2k])
         ));
         steps.push(this.step(
             { label: 'Insurable earnings', value: formatCurrency(det.ei.insurableEarnings), cls: 'calc-gross-income' },
@@ -735,7 +938,8 @@ export class DisplayManager {
             { label: det.ei.quebecRate ? 'EI rate (Quebec)' : 'EI rate', value: formatRate(det.ei.rate), cls: 'calc-tax-rate' },
             { label: 'EI premiums', value: formatCurrency(det.ei.total), cls: 'calc-total-tax' },
             `Salary up to the maximum insurable earnings (${formatCurrency(ei.mie)}); maximum ${formatCurrency(ei.max)}.`
-            + (det.ei.quebecRate ? ' Quebec has a lower EI rate because QPIP pays parental benefits instead.' : '')
+            + (det.ei.quebecRate ? ' Quebec has a lower EI rate because QPIP pays parental benefits instead.' : ''),
+            sourceLinks(pd, [eik])
         ));
         if (isQpp) {
             const insurable = Math.min(r.input.employmentIncome, qpip.mie);
@@ -744,7 +948,8 @@ export class DisplayManager {
                 '×',
                 { label: 'QPIP rate', value: formatRate(det.qpip.rate), cls: 'calc-tax-rate' },
                 { label: 'QPIP premiums', value: formatCurrency(det.qpip.total), cls: 'calc-total-tax' },
-                `Quebec Parental Insurance Plan: salary up to ${formatCurrency(qpip.mie)}; maximum ${formatCurrency(qpip.max)}.`
+                `Quebec Parental Insurance Plan: salary up to ${formatCurrency(qpip.mie)}; maximum ${formatCurrency(qpip.max)}.`,
+                sourceLinks(pd, ['qpip'])
             ));
         } else {
             const note = document.createElement('p');
@@ -765,17 +970,18 @@ export class DisplayManager {
     // ------------------------------------------------------------------
 
     /** One calc-step row: [a] op [b] = [c], with an optional note below. */
-    step(a, op, b, c, note = '') {
+    step(a, op, b, c, note = '', src = null) {
         const wrap = document.createElement('div');
         wrap.className = 'calc-step';
         const row = document.createElement('div');
         row.className = 'calc-step-mobile';
         row.append(this.box(a), this.operator(op), this.box(b), this.operator('='), this.box(c));
         wrap.appendChild(row);
-        if (note) {
+        if (note || src) {
             const p = document.createElement('p');
             p.className = 'calc-step-note';
             p.textContent = note;
+            if (src) p.append(' ', src);
             wrap.appendChild(p);
         }
         return wrap;
@@ -808,9 +1014,14 @@ export class DisplayManager {
         tbody.replaceChildren(...rows.map((cells, i) => {
             const tr = document.createElement('tr');
             if (i === activeIndex) tr.className = 'active-bracket';
-            cells.forEach(text => {
+            cells.forEach(cell => {
                 const td = document.createElement('td');
-                td.textContent = text;
+                if (Array.isArray(cell)) {
+                    td.textContent = cell[0];
+                    if (cell[1]) td.appendChild(cell[1]);
+                } else {
+                    td.textContent = cell;
+                }
                 tr.appendChild(td);
             });
             return tr;
@@ -838,9 +1049,14 @@ export class DisplayManager {
         const tbody = document.createElement('tbody');
         rows.forEach(cells => {
             const tr = document.createElement('tr');
-            cells.forEach(text => {
+            cells.forEach(cell => {
                 const td = document.createElement('td');
-                td.textContent = text;
+                if (Array.isArray(cell)) {
+                    td.textContent = cell[0];
+                    if (cell[1]) td.appendChild(cell[1]);
+                } else {
+                    td.textContent = cell;
+                }
                 tr.appendChild(td);
             });
             tbody.appendChild(tr);
@@ -902,30 +1118,96 @@ export class DisplayManager {
         host.classList.remove('hidden');
     }
 
-    /** Source links from a data module (http/https only). */
+    /** Full source list from a data module (http/https only): title, official or secondary, fields covered. */
     renderSources(id, jData) {
         const host = this.el(id);
         if (!host) return;
         const sources = (jData && Array.isArray(jData.sources)) ? jData.sources : [];
         host.replaceChildren(...sources.map(src => {
             const li = document.createElement('li');
-            let safe = null;
-            try {
-                const u = new URL(src.url);
-                if (u.protocol === 'https:' || u.protocol === 'http:') safe = u.href;
-            } catch { /* not a URL */ }
-            if (safe) {
-                const a = document.createElement('a');
-                a.href = safe;
-                a.target = '_blank';
-                a.rel = 'noopener noreferrer';
-                a.textContent = src.title || safe;
-                li.appendChild(a);
+            const d = describeSource(src);
+            if (d.safe) {
+                li.appendChild(linkElement(d, src.title || d.safe));
+                const kind = document.createElement('span');
+                kind.className = d.official ? 'src-kind' : 'src-kind src-secondary-tag';
+                kind.textContent = d.official ? 'official' : 'secondary, not an official page';
+                li.append(' ', kind);
             } else {
                 li.append(src.title || String(src.url || ''));
             }
+            if (Array.isArray(src.fields) && src.fields.length) li.append(` Covers: ${src.fields.join(', ')}.`);
             if (src.retrieved) li.append(` (retrieved ${src.retrieved})`);
             return li;
+        }));
+    }
+
+    /** Newest `retrieved` date across the data modules shown, e.g. "2026-10-27". */
+    latestRetrieved(modules) {
+        let latest = '';
+        modules.forEach(m => (m && Array.isArray(m.sources) ? m.sources : []).forEach(s => {
+            if (typeof s.retrieved === 'string' && s.retrieved > latest) latest = s.retrieved;
+        }));
+        return latest;
+    }
+
+    /**
+     * "Verify these numbers": per jurisdiction, the official pages the data
+     * cites (deduplicated), then a few extra official landing pages, then any
+     * secondary sources in a separate, labelled line. Also fills the footer as-of date.
+     */
+    renderVerify(rows, salesData, mathData) {
+        const groups = [
+            { code: 'fed', name: 'Federal (CRA)', mod: mathData.fed },
+            { code: 'payroll', name: 'CPP, QPP, EI and QPIP', mod: mathData.payroll },
+            ...rows.map(r => ({ code: r.province, name: r.name, mod: salesData && salesData[r.province] }))
+        ];
+        const asOf = this.latestRetrieved(groups.map(g => g.mod));
+        this.setText('footer-as-of', asOf || 'the date of the last data check');
+
+        const host = this.el('verify-list');
+        if (!host) return;
+        host.replaceChildren(...groups.map(g => {
+            const card = document.createElement('div');
+            card.className = 'verify-item';
+            const h = document.createElement('h4');
+            h.textContent = g.name;
+            const ul = document.createElement('ul');
+            ul.className = 'verify-links';
+            const sources = (g.mod && Array.isArray(g.mod.sources)) ? g.mod.sources : [];
+            const seen = new Set();
+            const official = [];
+            const secondary = [];
+            sources.forEach(src => {
+                const d = describeSource(src);
+                if (!d.safe || seen.has(d.safe)) return;
+                seen.add(d.safe);
+                (d.official ? official : secondary).push(d);
+            });
+            official.forEach(d => {
+                const li = document.createElement('li');
+                li.appendChild(linkElement(d, shortTitle(d.title) || d.label));
+                ul.appendChild(li);
+            });
+            (EXTRA_VERIFY_LINKS[g.code] || []).forEach(([text, url]) => {
+                const u = parseUrl(url);
+                if (!u || seen.has(u.href)) return;
+                seen.add(u.href);
+                const li = document.createElement('li');
+                li.appendChild(linkElement({ safe: u.href, official: true, label: text, title: text }, text));
+                ul.appendChild(li);
+            });
+            card.append(h, ul);
+            if (secondary.length) {
+                const p = document.createElement('p');
+                p.className = 'verify-secondary';
+                p.append('Cross-checks, not official pages: ');
+                secondary.forEach((d, i) => {
+                    if (i > 0) p.append(', ');
+                    p.appendChild(linkElement(d, d.label));
+                });
+                card.appendChild(p);
+            }
+            return card;
         }));
     }
 }

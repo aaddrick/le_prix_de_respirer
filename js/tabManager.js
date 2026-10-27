@@ -38,6 +38,10 @@ export class TabManager {
         const toOutput = document.getElementById('setup-to-output');
         if (toOutput) toOutput.addEventListener('click', () => this.setActiveTab('output'));
 
+        // "Edit inputs" on Take-home goes back to Setup.
+        const toSetup = document.getElementById('out-edit-inputs');
+        if (toSetup) toSetup.addEventListener('click', () => this.setActiveTab('setup'));
+
         document.addEventListener('keydown', (e) => {
             if (!(e.ctrlKey || e.metaKey)) return;
             const index = Number.parseInt(e.key, 10) - 1;

@@ -2377,3 +2377,60 @@ th[aria-sort="descending"] .sort-button::after { content: ' \2193'; opacity: 1; 
         color: #94a3b8;
     }
 }
+
+
+/* UI-3: source links, Verify section, edit-inputs link */
+.src-links {
+    display: inline-block;
+    margin-left: 0.4rem;
+    font-size: 0.6875rem;
+    font-weight: 400;
+    color: #64748b;
+    white-space: normal;
+    text-align: left;
+}
+.src-link { color: #2563eb; text-decoration: underline; }
+.src-link.src-secondary { color: #92400e; }
+.src-link::after { content: '\2197'; font-size: 0.65em; margin-left: 1px; }
+.dark .src-links { color: #94a3b8; }
+.dark .src-link { color: #60a5fa; }
+.dark .src-link.src-secondary { color: #fbbf24; }
+.src-kind { font-size: 0.6875rem; color: #166534; margin-left: 0.25rem; }
+.src-kind.src-secondary-tag { color: #92400e; }
+.dark .src-kind { color: #86efac; }
+.dark .src-kind.src-secondary-tag { color: #fbbf24; }
+.bracket-table td .src-links, .compare-table th .src-links { display: block; margin-left: 0; }
+.source-slot { display: block; }
+.estimate-line { text-align: center; margin-top: 0.25rem; }
+.edit-inputs-row { margin: 0 0 0.75rem; }
+.link-button {
+    background: none;
+    border: 0;
+    padding: 0.25rem 0;
+    color: #2563eb;
+    font: inherit;
+    font-size: 0.875rem;
+    cursor: pointer;
+    text-decoration: underline;
+}
+.dark .link-button { color: #60a5fa; }
+.verify-section { margin-top: 2rem; }
+.verify-grid { display: grid; grid-template-columns: 1fr; gap: 0.75rem; margin-top: 0.75rem; }
+.verify-item {
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    font-size: 0.8125rem;
+    min-width: 0;
+}
+.dark .verify-item { border-color: #334155; }
+.verify-item h4 { margin: 0 0 0.375rem; font-size: 0.9375rem; }
+.verify-links { margin: 0 0 0 1.1rem; padding: 0; }
+.verify-links li { margin-bottom: 0.2rem; overflow-wrap: anywhere; }
+.verify-links a { color: #2563eb; }
+.dark .verify-links a { color: #60a5fa; }
+.verify-secondary { margin: 0.4rem 0 0; font-size: 0.75rem; color: #64748b; overflow-wrap: anywhere; }
+.dark .verify-secondary { color: #94a3b8; }
+@media (min-width: 768px) {
+    .verify-grid { grid-template-columns: 1fr 1fr; }
+}
